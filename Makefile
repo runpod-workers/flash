@@ -106,12 +106,16 @@ build-wip: # Build and push all WIP images (multi-platform)
 build-wip-gpu: setup # Build and push GPU image (multi-platform)
 	docker buildx build \
 	--platform $(MULTI_PLATFORM) \
+	--build-context flash-source=../flash \
+	--build-arg USE_LOCAL_FLASH=true \
 	-t $(IMAGE):$(WIP_TAG) \
 	. --push
 
 build-wip-cpu: setup # Build and push CPU image (multi-platform)
 	docker buildx build \
 	--platform $(MULTI_PLATFORM) \
+	--build-context flash-source=../flash \
+	--build-arg USE_LOCAL_FLASH=true \
 	-f Dockerfile-cpu \
 	-t $(IMAGE)-cpu:$(WIP_TAG) \
 	. --push
@@ -119,6 +123,8 @@ build-wip-cpu: setup # Build and push CPU image (multi-platform)
 build-wip-lb: setup # Build and push LB image (multi-platform)
 	docker buildx build \
 	--platform $(MULTI_PLATFORM) \
+	--build-context flash-source=../flash \
+	--build-arg USE_LOCAL_FLASH=true \
 	-f Dockerfile-lb \
 	-t $(IMAGE)-lb:$(WIP_TAG) \
 	. --push
@@ -126,6 +132,8 @@ build-wip-lb: setup # Build and push LB image (multi-platform)
 build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
 	docker buildx build \
 	--platform $(MULTI_PLATFORM) \
+	--build-context flash-source=../flash \
+	--build-arg USE_LOCAL_FLASH=true \
 	-f Dockerfile-lb-cpu \
 	-t $(IMAGE)-lb-cpu:$(WIP_TAG) \
 	. --push

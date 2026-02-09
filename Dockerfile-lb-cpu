@@ -27,7 +27,21 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
 COPY README.md pyproject.toml uv.lock ./
 COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
- && uv pip install --system -r requirements.txt
+ && uv pip install --system -r requirements.txt \
+ && python -c "import site; import shutil; shutil.copy('sitecustomize.py', site.getsitepackages()[0])" \
+ && echo "Installed sitecustomize.py to $(python -c 'import site; print(site.getsitepackages()[0])')"
+
+# Conditionally install local runpod_flash for WIP builds
+ARG USE_LOCAL_FLASH=false
+COPY --from=flash-source . /tmp/flash-source/
+RUN if [ "$USE_LOCAL_FLASH" = "true" ]; then \
+    echo "Installing local runpod_flash for WIP build..." && \
+    SITE_PACKAGES=$(python -c 'import site; print(site.getsitepackages()[0])') && \
+    rm -rf "$SITE_PACKAGES/runpod_flash"* && \
+    cp -r /tmp/flash-source/src/runpod_flash "$SITE_PACKAGES/" && \
+    echo "Local runpod_flash installed to $SITE_PACKAGES/runpod_flash" && \
+    python -c "import runpod_flash; print('Verified:', runpod_flash.__file__)"; \
+fi
 
 EXPOSE 80
 
