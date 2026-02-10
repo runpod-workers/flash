@@ -28,8 +28,6 @@ from fastapi import FastAPI
 
 from logger import setup_logging
 from unpack_volume import maybe_unpack
-from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
-from remote_executor import RemoteExecutor
 
 # Initialize logging configuration
 setup_logging()
@@ -38,6 +36,11 @@ logger = logging.getLogger(__name__)
 # Unpack Flash deployment artifacts if running in Flash mode
 # This is a no-op for Live Serverless and local development
 maybe_unpack()
+
+# Import from bundled /app/runpod_flash (no system package)
+# These imports must happen AFTER maybe_unpack() so /app is in sys.path
+from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse  # noqa: E402
+from remote_executor import RemoteExecutor  # noqa: E402
 
 # Determine mode based on environment variables
 is_mothership = os.getenv("FLASH_IS_MOTHERSHIP") == "true"
