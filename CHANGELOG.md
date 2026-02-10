@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/runpod-workers/flash/compare/v1.0.0...v1.0.1) (2026-02-10)
+
+
+### Bug Fixes
+
+* move flash imports after maybe_unpack to fix torch import errors ([#63](https://github.com/runpod-workers/flash/issues/63)) ([f1bd8a3](https://github.com/runpod-workers/flash/commit/f1bd8a351b64d5e371119b7f8775a7533146ba9e))
+
 ## [1.0.0](https://github.com/runpod-workers/worker-tetra/compare/v0.7.5...v1.0.0) (2026-02-04)
 
 
