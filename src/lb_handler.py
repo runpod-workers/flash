@@ -47,6 +47,9 @@ is_mothership = os.getenv("FLASH_IS_MOTHERSHIP") == "true"
 
 if is_mothership:
     # Mothership mode: Import user's FastAPI application
+    logger.info("=" * 60)
+    logger.info("IMPORTING APPLICATION")
+    logger.info("=" * 60)
     try:
         main_file = os.getenv("FLASH_MAIN_FILE", "main.py")
         app_variable = os.getenv("FLASH_APP_VARIABLE", "app")
@@ -73,6 +76,7 @@ if is_mothership:
             )
 
         logger.info(f"Successfully imported FastAPI app '{app_variable}' from {main_file}")
+        logger.info("=" * 60)
 
         # Add /ping endpoint if not already present
         # Check if /ping route already exists to avoid adding a duplicate health check endpoint

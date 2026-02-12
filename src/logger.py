@@ -57,6 +57,18 @@ def setup_logging(
         handler.setFormatter(logging.Formatter(fmt))
         root_logger.addHandler(handler)
 
+    # Configure uvicorn loggers to use same format
+    formatter = logging.Formatter(fmt)
+    for logger_name in ["uvicorn", "uvicorn.error", "uvicorn.access"]:
+        uvicorn_logger = logging.getLogger(logger_name)
+        uvicorn_logger.setLevel(level)
+        # Suppress access logs unless DEBUG
+        if logger_name == "uvicorn.access" and level != logging.DEBUG:
+            uvicorn_logger.setLevel(logging.WARNING)
+        # Ensure handlers use our formatter
+        for uvicorn_handler in uvicorn_logger.handlers:
+            uvicorn_handler.setFormatter(formatter)
+
     # When DEBUG is requested, silence the noisy module
     if level == logging.DEBUG:
         logging.getLogger("filelock").setLevel(logging.INFO)
