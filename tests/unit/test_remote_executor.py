@@ -806,3 +806,144 @@ class TestRemoteExecutor:
 
             # Verify function executor was called
             mock_execute.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_route_to_endpoint_uses_context_api_key_over_env_var(self):
+        """Test _route_to_endpoint uses context API key instead of env var."""
+        request = FunctionRequest(
+            function_name="remote_func",
+            args=[],
+            kwargs={},
+        )
+
+        context_key = "context-api-key"
+        env_key = "env-api-key"
+
+        # Import after test setup to get context functions
+        from api_key_context import set_api_key, clear_api_key
+
+        try:
+            # Set context API key
+            set_api_key(context_key)
+
+            with (
+                patch.dict("os.environ", {"RUNPOD_API_KEY": env_key}),
+                patch("aiohttp.ClientSession.post") as mock_post,
+            ):
+                # Mock aiohttp response
+                mock_response_data = {"output": {"success": True, "result": "endpoint_result"}}
+                mock_post_response = AsyncMock()
+                mock_post_response.status = 200
+                mock_post_response.json = AsyncMock(return_value=mock_response_data)
+                mock_post_response.__aenter__.return_value = mock_post_response
+                mock_post_response.__aexit__.return_value = None
+                mock_post.return_value = mock_post_response
+
+                # Call _route_to_endpoint
+                response = await self.executor._route_to_endpoint(
+                    request, "https://api.runpod.ai/v2/endpoint/run"
+                )
+
+                # Verify response was successful
+                assert response.success is True
+
+                # Verify context API key was used in Authorization header
+                mock_post.assert_called_once()
+                call_kwargs = mock_post.call_args[1]
+                headers = call_kwargs.get("headers", {})
+                assert headers.get("Authorization") == f"Bearer {context_key}"
+        finally:
+            clear_api_key()
+
+    @pytest.mark.asyncio
+    async def test_route_to_endpoint_falls_back_to_env_var_when_no_context_key(self):
+        """Test _route_to_endpoint falls back to env var when no context API key."""
+        request = FunctionRequest(
+            function_name="remote_func",
+            args=[],
+            kwargs={},
+        )
+
+        env_key = "env-api-key"
+
+        # Import to ensure context is clear
+        from api_key_context import clear_api_key
+
+        try:
+            # Ensure context is clear
+            clear_api_key()
+
+            with (
+                patch.dict("os.environ", {"RUNPOD_API_KEY": env_key}),
+                patch("aiohttp.ClientSession.post") as mock_post,
+            ):
+                # Mock aiohttp response
+                mock_response_data = {"output": {"success": True, "result": "endpoint_result"}}
+                mock_post_response = AsyncMock()
+                mock_post_response.status = 200
+                mock_post_response.json = AsyncMock(return_value=mock_response_data)
+                mock_post_response.__aenter__.return_value = mock_post_response
+                mock_post_response.__aexit__.return_value = None
+                mock_post.return_value = mock_post_response
+
+                # Call _route_to_endpoint
+                response = await self.executor._route_to_endpoint(
+                    request, "https://api.runpod.ai/v2/endpoint/run"
+                )
+
+                # Verify response was successful
+                assert response.success is True
+
+                # Verify env var was used in Authorization header
+                mock_post.assert_called_once()
+                call_kwargs = mock_post.call_args[1]
+                headers = call_kwargs.get("headers", {})
+                assert headers.get("Authorization") == f"Bearer {env_key}"
+        finally:
+            clear_api_key()
+
+    @pytest.mark.asyncio
+    async def test_route_to_endpoint_no_api_key_available(self):
+        """Test _route_to_endpoint handles case with no API key available."""
+        request = FunctionRequest(
+            function_name="remote_func",
+            args=[],
+            kwargs={},
+        )
+
+        # Import to ensure context is clear
+        from api_key_context import clear_api_key
+
+        try:
+            # Ensure context is clear
+            clear_api_key()
+
+            with (
+                patch.dict("os.environ", {}, clear=True),
+                patch.dict("os.environ", {"RUNPOD_API_KEY": ""}, clear=False),
+                patch("aiohttp.ClientSession.post") as mock_post,
+            ):
+                # Mock aiohttp response
+                mock_response_data = {"output": {"success": True, "result": "endpoint_result"}}
+                mock_post_response = AsyncMock()
+                mock_post_response.status = 200
+                mock_post_response.json = AsyncMock(return_value=mock_response_data)
+                mock_post_response.__aenter__.return_value = mock_post_response
+                mock_post_response.__aexit__.return_value = None
+                mock_post.return_value = mock_post_response
+
+                # Call _route_to_endpoint
+                response = await self.executor._route_to_endpoint(
+                    request, "https://api.runpod.ai/v2/endpoint/run"
+                )
+
+                # Verify response was successful
+                assert response.success is True
+
+                # Verify no Authorization header was added
+                mock_post.assert_called_once()
+                call_kwargs = mock_post.call_args[1]
+                headers = call_kwargs.get("headers", {})
+                assert "Authorization" not in headers or headers.get("Authorization") is None
+        finally:
+            clear_api_key()

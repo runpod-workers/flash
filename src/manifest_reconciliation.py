@@ -161,6 +161,11 @@ async def refresh_manifest_if_stale(
         logger.debug("RUNPOD_ENDPOINT_ID not set, skipping manifest refresh")
         return False
 
+    # Skip State Manager queries in preview mode
+    if endpoint_id.startswith("preview-"):
+        logger.debug("Preview mode detected, skipping State Manager queries")
+        return True  # Manifest will be loaded from FLASH_RESOURCES_ENDPOINTS
+
     api_key = os.getenv("RUNPOD_API_KEY")
     if not api_key:
         logger.debug("RUNPOD_API_KEY not set, skipping manifest refresh")
