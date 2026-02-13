@@ -8,13 +8,14 @@ It supports:
 
 The handler uses worker-flash's RemoteExecutor for function execution.
 
-Mothership Mode (FLASH_IS_MOTHERSHIP=true):
+Mothership Mode (FLASH_MOTHERSHIP_ID set):
+- FLASH_MOTHERSHIP_ID contains the mothership's RUNPOD_ENDPOINT_ID
 - Imports user's FastAPI application from FLASH_MAIN_FILE
 - Loads the app object from FLASH_APP_VARIABLE
 - Preserves all user routes and middleware
 - Adds /ping health check endpoint
 
-Queue-Based Mode (FLASH_IS_MOTHERSHIP not set or false):
+Child Endpoint Mode (FLASH_MOTHERSHIP_ID not set):
 - Creates generic FastAPI app with /execute endpoint
 - Uses RemoteExecutor for function execution
 """
@@ -42,7 +43,7 @@ from runpod_flash.protos.remote_execution import FunctionRequest, FunctionRespon
 from remote_executor import RemoteExecutor  # noqa: E402
 
 # Determine mode based on environment variables
-is_mothership = os.getenv("FLASH_IS_MOTHERSHIP") == "true"
+is_mothership = os.getenv("FLASH_MOTHERSHIP_ID") is not None
 
 if is_mothership:
     # Mothership mode: Import user's FastAPI application
@@ -97,7 +98,7 @@ if is_mothership:
 else:
     # Queue-based mode: Create generic Load Balancer handler app
     app = FastAPI(title="Load Balancer Handler")
-    logger.info("Queue-based mode: Using generic Load Balancer handler")
+    logger.info("Child endpoint mode: Using generic Load Balancer handler")
 
 
 # Queue-based mode endpoints

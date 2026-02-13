@@ -75,11 +75,11 @@ The handler automatically detects the deployment mode using environment variable
 |-------------|---------------|--------------|---------------|
 | Local dev | ❌ Not set | ❌ Not set | Live Serverless only |
 | Live Serverless | ✅ Set | ❌ Not set | Live Serverless |
-| Flash Mothership | ✅ Set | ✅ FLASH_IS_MOTHERSHIP=true | Flash Deployed |
+| Flash Mothership | ✅ Set | ✅ FLASH_MOTHERSHIP_ID | Flash Deployed |
 | Flash Child | ✅ Set | ✅ FLASH_RESOURCE_NAME | Flash Deployed |
 
 Flash-specific environment variables:
-- `FLASH_IS_MOTHERSHIP=true` - Set for mothership endpoints
+- `FLASH_MOTHERSHIP_ID` - Set for mothership endpoints (contains the mothership's RUNPOD_ENDPOINT_ID)
 - `FLASH_RESOURCE_NAME` - Specifies resource config name
 
 ## Request Format Differences

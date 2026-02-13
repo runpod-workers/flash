@@ -223,7 +223,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
             },
             clear=False,
         ):
@@ -252,7 +252,7 @@ class TestShouldUnpackFromVolume:
             clear=False,
         ):
             os.environ.pop("FLASH_DISABLE_UNPACK", None)
-            os.environ.pop("FLASH_IS_MOTHERSHIP", None)
+            os.environ.pop("FLASH_MOTHERSHIP_ID", None)
             os.environ.pop("FLASH_RESOURCE_NAME", None)
             assert _should_unpack_from_volume() is False
 
@@ -270,7 +270,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "FLASH_DISABLE_UNPACK": "1",
             },
         ):
@@ -282,7 +282,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "FLASH_DISABLE_UNPACK": "true",
             },
         ):
@@ -294,7 +294,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "FLASH_DISABLE_UNPACK": "yes",
             },
         ):
@@ -306,7 +306,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "FLASH_DISABLE_UNPACK": "false",
             },
         ):
@@ -318,7 +318,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "FLASH_DISABLE_UNPACK": "True",
             },
         ):
@@ -330,7 +330,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "FLASH_DISABLE_UNPACK": "YES",
             },
         ):
@@ -342,7 +342,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "FLASH_DISABLE_UNPACK": "Yes",
             },
         ):

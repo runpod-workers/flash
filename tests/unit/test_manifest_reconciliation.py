@@ -42,12 +42,12 @@ class TestIsFlashDeployment:
     """Test Flash deployment detection."""
 
     def test_is_flash_deployment_mothership(self) -> None:
-        """Test detection with FLASH_IS_MOTHERSHIP."""
+        """Test detection with FLASH_MOTHERSHIP_ID."""
         with patch.dict(
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
             },
         ):
             assert is_flash_deployment() is True
@@ -69,7 +69,7 @@ class TestIsFlashDeployment:
         with patch.dict(
             "os.environ",
             {
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
             },
             clear=True,
         ):
@@ -260,7 +260,7 @@ class TestRefreshManifestIfStale:
         """Test refresh skipped when RUNPOD_ENDPOINT_ID not set."""
         manifest_path = tmp_path / "manifest.json"
 
-        with patch.dict("os.environ", {"FLASH_IS_MOTHERSHIP": "true"}, clear=True):
+        with patch.dict("os.environ", {"FLASH_MOTHERSHIP_ID": "test-mothership-id"}, clear=True):
             result = await refresh_manifest_if_stale(manifest_path)
 
         assert result is False
@@ -274,7 +274,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
             },
             clear=True,
         ):
@@ -296,7 +296,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,
@@ -343,7 +343,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,
@@ -382,7 +382,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,
@@ -418,7 +418,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_MOTHERSHIP_ID": "test-mothership-id",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,

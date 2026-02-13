@@ -30,8 +30,8 @@ def is_flash_deployment() -> bool:
     endpoint_id = os.getenv("RUNPOD_ENDPOINT_ID")
     is_flash = any(
         [
-            os.getenv("FLASH_IS_MOTHERSHIP") == "true",
-            os.getenv("FLASH_RESOURCE_NAME"),
+            os.getenv("FLASH_MOTHERSHIP_ID") is not None,
+            os.getenv("FLASH_RESOURCE_NAME") is not None,
         ]
     )
     return bool(endpoint_id and is_flash)
