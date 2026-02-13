@@ -130,21 +130,42 @@ def maybe_unpack():
 
         last_error: Exception | None = None
         for attempt in range(DEFAULT_TARBALL_UNPACK_ATTEMPTS):
+            attempt_num = attempt + 1  # 1-indexed for display
             try:
+                logger.info(
+                    "attempting to extract tarball (attempt %s of %s)...",
+                    attempt_num,
+                    DEFAULT_TARBALL_UNPACK_ATTEMPTS,
+                )
                 unpack_app_from_volume()
                 _UNPACKED = True
                 return
             except (FileNotFoundError, RuntimeError) as e:
                 last_error = e
-                logger.error(
-                    "failed to unpack app from volume (attempt %s/%s): %s",
-                    attempt + 1,
-                    DEFAULT_TARBALL_UNPACK_ATTEMPTS,
-                    e,
-                    exc_info=True,
-                )
-                if attempt < DEFAULT_TARBALL_UNPACK_ATTEMPTS - 1:
+                is_final_attempt = attempt == DEFAULT_TARBALL_UNPACK_ATTEMPTS - 1
+
+                if is_final_attempt:
+                    # Final attempt failed - log as ERROR with traceback
+                    logger.error(
+                        "failed to unpack app from volume (final attempt %s of %s): %s",
+                        attempt_num,
+                        DEFAULT_TARBALL_UNPACK_ATTEMPTS,
+                        e,
+                        exc_info=True,
+                    )
+                else:
+                    # Expected retry - log as WARNING without traceback
+                    logger.warning(
+                        "unpack failed (attempt %s of %s): %s",
+                        attempt_num,
+                        DEFAULT_TARBALL_UNPACK_ATTEMPTS,
+                        e,
+                    )
+                    logger.info(
+                        "waiting %s seconds before retry...", DEFAULT_TARBALL_UNPACK_INTERVAL
+                    )
                     sleep(DEFAULT_TARBALL_UNPACK_INTERVAL)
+
         raise RuntimeError(
-            f"failed to unpack app from volume after retries: {last_error}"
+            f"failed to unpack app from volume after {DEFAULT_TARBALL_UNPACK_ATTEMPTS} attempts: {last_error}"
         ) from last_error
