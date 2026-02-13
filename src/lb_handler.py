@@ -29,6 +29,10 @@ from fastapi import FastAPI
 from logger import setup_logging
 from unpack_volume import maybe_unpack
 
+# Suppress noisy third-party loggers (runpod-python pattern)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
+
 # Initialize logging configuration
 setup_logging()
 logger = logging.getLogger(__name__)

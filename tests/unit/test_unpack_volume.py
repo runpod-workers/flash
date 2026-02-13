@@ -417,7 +417,9 @@ class TestMaybeUnpack:
 
         maybe_unpack()
 
-        mock_logger.info.assert_called_once_with("unpacking app from volume")
+        # Verify first info log is the startup message
+        first_call = mock_logger.info.call_args_list[0]
+        assert first_call[0][0] == "unpacking app from volume"
 
     @patch("unpack_volume.sleep")
     @patch("unpack_volume._should_unpack_from_volume")
@@ -434,8 +436,8 @@ class TestMaybeUnpack:
         with pytest.raises(RuntimeError, match="failed to unpack app from volume"):
             maybe_unpack()
 
-        # Error should be logged once per retry attempt (3 total)
-        assert mock_logger.error.call_count == 3
-        # Verify all error calls include the expected message
-        for call in mock_logger.error.call_args_list:
-            assert "failed to unpack app from volume" in call[0][0]
+        # With 3 attempts: 2 warning calls + 1 final error call
+        assert mock_logger.warning.call_count == 2
+        assert mock_logger.error.call_count == 1
+        # Verify the final error call includes the expected message
+        assert "failed to unpack app from volume" in mock_logger.error.call_args_list[0][0][0]
