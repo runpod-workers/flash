@@ -20,6 +20,7 @@ QB Endpoint Mode (FLASH_ENDPOINT_TYPE not set or not "lb"):
 """
 
 import importlib.util
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict
