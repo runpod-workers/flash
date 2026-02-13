@@ -2,6 +2,7 @@
 
 import os
 import pytest
+import rp_logger_adapter
 from unittest.mock import patch, MagicMock
 
 from rp_logger_adapter import (
@@ -123,6 +124,48 @@ class TestFlashLoggerAdapter:
         adapter, mock_rp_logger = adapter_with_mock
         adapter.info("No formatting")
         mock_rp_logger.info.assert_called_once_with("test | No formatting")
+
+    def test_error_with_exc_info(self, adapter_with_mock):
+        """Test error logging with exc_info includes traceback."""
+        adapter, mock_rp_logger = adapter_with_mock
+
+        # Simulate an active exception
+        try:
+            raise ValueError("Test error")
+        except ValueError:
+            adapter.error("Error occurred", exc_info=True)
+
+        # Verify error was called
+        assert mock_rp_logger.error.called
+        call_args = mock_rp_logger.error.call_args[0][0]
+
+        # Verify message starts with the expected prefix and includes traceback
+        assert call_args.startswith("test | Error occurred")
+        assert "ValueError: Test error" in call_args
+        assert "Traceback" in call_args
+
+    def test_error_without_exc_info(self, adapter_with_mock):
+        """Test error logging without exc_info doesn't include traceback."""
+        adapter, mock_rp_logger = adapter_with_mock
+
+        # Simulate an active exception but don't use exc_info
+        try:
+            raise ValueError("Test error")
+        except ValueError:
+            adapter.error("Error occurred", exc_info=False)
+
+        # Verify error was called without traceback
+        mock_rp_logger.error.assert_called_once_with("test | Error occurred")
+
+    def test_error_exc_info_with_no_active_exception(self, adapter_with_mock):
+        """Test error logging with exc_info=True but no active exception."""
+        adapter, mock_rp_logger = adapter_with_mock
+
+        # Call with exc_info=True but no active exception
+        adapter.error("Error occurred", exc_info=True)
+
+        # Should only log the message without traceback
+        mock_rp_logger.error.assert_called_once_with("test | Error occurred")
 
 
 class TestGetFlashLogger:
@@ -249,8 +292,6 @@ class TestSingletonBehavior:
 
     def test_rp_logger_singleton_caching(self):
         """Test that _get_rp_logger returns same instance."""
-        import rp_logger_adapter
-
         # Reset the singleton
         original_instance = rp_logger_adapter._rp_logger_instance
         rp_logger_adapter._rp_logger_instance = None

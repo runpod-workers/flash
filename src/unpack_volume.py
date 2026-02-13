@@ -139,7 +139,6 @@ def maybe_unpack():
                     DEFAULT_TARBALL_UNPACK_ATTEMPTS,
                 )
                 unpack_app_from_volume()
-                _UNPACKED = True
                 return
             except (FileNotFoundError, RuntimeError) as e:
                 last_error = e

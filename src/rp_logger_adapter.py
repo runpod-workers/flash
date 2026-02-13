@@ -10,6 +10,8 @@ for Python's standard logging module. It handles:
 """
 
 import os
+import sys
+import traceback
 from typing import Optional, Any
 
 from runpod.serverless.modules.rp_logger import RunPodLogger
@@ -87,20 +89,40 @@ class FlashLoggerAdapter:
             return f"{self.name} | {formatted_msg}"
         return formatted_msg
 
+    def _append_traceback(self, line: str, exc_info: bool) -> str:
+        """
+        Append exception traceback to log line if exc_info is True and exception is active.
+
+        Args:
+            line: Current log line
+            exc_info: Whether to include exception traceback
+
+        Returns:
+            Log line with traceback appended if applicable
+        """
+        if exc_info and sys.exc_info()[0] is not None:
+            line += "\n" + traceback.format_exc().rstrip()
+        return line
+
     def debug(self, msg: str, *args, **kwargs) -> None:
         """Log a debug message."""
-        # Accept but ignore exc_info and other kwargs for compatibility
         line = self._build_log_line("DEBUG", msg, args)
+        exc_info = kwargs.get("exc_info", False)
+        line = self._append_traceback(line, exc_info)
         self._rp_logger.debug(line)
 
     def info(self, msg: str, *args, **kwargs) -> None:
         """Log an info message."""
         line = self._build_log_line("INFO", msg, args)
+        exc_info = kwargs.get("exc_info", False)
+        line = self._append_traceback(line, exc_info)
         self._rp_logger.info(line)
 
     def warning(self, msg: str, *args, **kwargs) -> None:
         """Log a warning message."""
         line = self._build_log_line("WARN", msg, args)
+        exc_info = kwargs.get("exc_info", False)
+        line = self._append_traceback(line, exc_info)
         self._rp_logger.warn(line)
 
     def warn(self, msg: str, *args, **kwargs) -> None:
@@ -110,6 +132,8 @@ class FlashLoggerAdapter:
     def error(self, msg: str, *args, **kwargs) -> None:
         """Log an error message."""
         line = self._build_log_line("ERROR", msg, args)
+        exc_info = kwargs.get("exc_info", False)
+        line = self._append_traceback(line, exc_info)
         self._rp_logger.error(line)
 
 
@@ -152,7 +176,10 @@ def setup_flash_logging(level: Optional[str] = None) -> None:
 
     rp_logger = _get_rp_logger()
 
-    # RunPodLogger uses string-based level setting
+    # Configure RunPodLogger with the specified level
+    rp_logger.set_level(level)
+
+    # Log confirmation of level change
     if level == "DEBUG":
         rp_logger.debug("Debug logging enabled")
     elif level == "WARN":

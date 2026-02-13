@@ -12,6 +12,7 @@ import inspect
 from typing import List, Optional, Any
 
 from runpod_flash.protos.remote_execution import FunctionResponse
+from rp_logger_adapter import get_flash_logger
 
 
 def run_logged_subprocess(
@@ -174,7 +175,7 @@ def _get_logger_from_context(default_name: str = "subprocess_utils") -> Any:
         pass
 
     # Return default logger
-    return logging.getLogger(default_name)
+    return get_flash_logger(default_name)
 
 
 def _is_valid_logger(obj: object) -> bool:

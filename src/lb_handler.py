@@ -20,6 +20,7 @@ Queue-Based Mode (FLASH_IS_MOTHERSHIP not set or false):
 """
 
 import importlib.util
+import logging
 import os
 from typing import Any, Dict
 
@@ -27,6 +28,10 @@ from fastapi import FastAPI
 
 from rp_logger_adapter import setup_flash_logging, get_flash_logger
 from unpack_volume import maybe_unpack
+
+# Suppress noisy third-party loggers (matches runpod-python pattern)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("uvicorn").setLevel(logging.WARNING)
 
 # Initialize logging configuration
 setup_flash_logging()
