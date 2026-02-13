@@ -1,27 +1,38 @@
 """
 Logging configuration for worker-flash.
 
-Provides centralized logging setup matching runpod-flash style with level-based formatting.
+Provides thin wrapper around RunPodLogger for backward compatibility.
+New code should use rp_logger_adapter directly.
 """
 
-import logging
-import os
 import sys
 from typing import Union, Optional
 
+from rp_logger_adapter import (
+    setup_flash_logging,
+    get_log_level as get_rp_log_level,
+)
+
 
 def get_log_level() -> int:
-    """Get log level from environment variable, defaulting to INFO."""
-    log_level = os.environ.get("LOG_LEVEL", "INFO").upper()
-    return getattr(logging, log_level, logging.INFO)
+    """Get log level from environment variable, defaulting to INFO.
+
+    Deprecated: Use get_rp_log_level() from rp_logger_adapter instead.
+    This is kept for backward compatibility.
+    """
+    # Convert string level to dummy int for backward compatibility
+    level_str = get_rp_log_level()
+    level_map = {"DEBUG": 10, "INFO": 20, "WARN": 30, "ERROR": 40}
+    return level_map.get(level_str, 20)  # Default to INFO (20)
 
 
 def get_log_format(level: int) -> str:
-    """Get appropriate log format based on level, matching runpod-flash style."""
-    if level == logging.DEBUG:
-        return "%(asctime)s | %(levelname)-5s | %(name)s | %(filename)s:%(lineno)d | %(message)s"
-    else:
-        return "%(asctime)s | %(levelname)-5s | %(message)s"
+    """Get appropriate log format based on level.
+
+    Deprecated: RunPodLogger handles formatting internally.
+    This is kept as a placeholder for backward compatibility.
+    """
+    return "%(message)s"  # RunPodLogger handles the actual format
 
 
 def setup_logging(
@@ -31,32 +42,18 @@ def setup_logging(
 ) -> None:
     """
     Setup logging configuration for worker-flash.
-    Only shows DEBUG logs from flash namespace when LOG_LEVEL=DEBUG.
+
+    Deprecated: Use setup_flash_logging() from rp_logger_adapter instead.
+    This is kept for backward compatibility.
 
     Args:
         level: Log level (defaults to LOG_LEVEL env var or INFO)
-        stream: Output stream for logs
-        fmt: Custom format string (auto-selected based on level if None)
+        stream: Output stream for logs (ignored, RunPodLogger uses stdout)
+        fmt: Custom format string (ignored, RunPodLogger handles format)
     """
-    # Determine log level
-    if level is None:
-        level = get_log_level()
-    elif isinstance(level, str):
-        level = getattr(logging, level.upper(), logging.INFO)
+    # Convert int level to string if needed
+    if isinstance(level, int):
+        level_map = {10: "DEBUG", 20: "INFO", 30: "WARN", 40: "ERROR"}
+        level = level_map.get(level, "INFO")
 
-    # Determine format based on requested level
-    if fmt is None:
-        fmt = get_log_format(level)
-
-    # Configure root logger
-    root_logger = logging.getLogger()
-    root_logger.setLevel(level)
-
-    if not root_logger.hasHandlers():
-        handler = logging.StreamHandler(stream)
-        handler.setFormatter(logging.Formatter(fmt))
-        root_logger.addHandler(handler)
-
-    # When DEBUG is requested, silence the noisy module
-    if level == logging.DEBUG:
-        logging.getLogger("filelock").setLevel(logging.INFO)
+    setup_flash_logging(level)

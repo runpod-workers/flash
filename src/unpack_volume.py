@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import os
 import sys
 import tarfile
@@ -8,6 +7,7 @@ import threading
 from pathlib import Path
 from time import sleep
 
+from rp_logger_adapter import get_flash_logger
 from constants import (
     DEFAULT_APP_DIR,
     DEFAULT_ARTIFACT_PATH,
@@ -16,7 +16,7 @@ from constants import (
 )
 from manifest_reconciliation import is_flash_deployment
 
-logger = logging.getLogger(__name__)
+logger = get_flash_logger(__name__)
 
 
 def _safe_extract_tar(tar: tarfile.TarFile, target_dir: Path) -> None:

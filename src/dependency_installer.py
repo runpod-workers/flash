@@ -1,10 +1,10 @@
 import os
-import logging
 import asyncio
 import platform
 from typing import List
 
 from runpod_flash.protos.remote_execution import FunctionResponse
+from rp_logger_adapter import get_flash_logger
 from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
 from subprocess_utils import run_logged_subprocess
 
@@ -13,7 +13,7 @@ class DependencyInstaller:
     """Handles installation of system and Python dependencies."""
 
     def __init__(self):
-        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
+        self.logger = get_flash_logger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
         self._nala_available = None  # Cache nala availability check
         self._is_docker = None  # Cache Docker environment detection
 

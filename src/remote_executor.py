@@ -1,4 +1,3 @@
-import logging
 import asyncio
 import importlib
 import json
@@ -11,6 +10,7 @@ from runpod_flash.protos.remote_execution import (
     FunctionResponse,
     RemoteExecutorStub,
 )
+from rp_logger_adapter import get_flash_logger
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
 from class_executor import ClassExecutor
@@ -35,7 +35,7 @@ class RemoteExecutor(RemoteExecutorStub):
 
     def __init__(self):
         super().__init__()
-        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
+        self.logger = get_flash_logger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
 
         # Initialize components using composition
         self.dependency_installer = DependencyInstaller()
@@ -67,14 +67,12 @@ class RemoteExecutor(RemoteExecutorStub):
         """
         # Start log streaming to capture all system logs
         # Use the requested log level, not the root logger level
-        from logger import get_log_level
+        from rp_logger_adapter import get_log_level
 
         requested_level = get_log_level()
-        start_log_streaming(level=requested_level)
+        start_log_streaming(level=20)  # INFO level
 
-        self.logger.debug(
-            f"Started log streaming at level: {logging.getLevelName(requested_level)}"
-        )
+        self.logger.debug(f"Started log streaming at level: {requested_level}")
         self.logger.debug(
             f"Executing {request.execution_type} request: {request.function_name or request.class_name}"
         )

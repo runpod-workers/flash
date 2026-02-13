@@ -20,22 +20,17 @@ Queue-Based Mode (FLASH_IS_MOTHERSHIP not set or false):
 """
 
 import importlib.util
-import logging
 import os
 from typing import Any, Dict
 
 from fastapi import FastAPI
 
-from logger import setup_logging
+from rp_logger_adapter import setup_flash_logging, get_flash_logger
 from unpack_volume import maybe_unpack
 
-# Suppress noisy third-party loggers (runpod-python pattern)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("uvicorn").setLevel(logging.WARNING)
-
 # Initialize logging configuration
-setup_logging()
-logger = logging.getLogger(__name__)
+setup_flash_logging()
+logger = get_flash_logger(__name__)
 
 # Unpack Flash deployment artifacts if running in Flash mode
 # This is a no-op for Live Serverless and local development
