@@ -24,8 +24,9 @@ import importlib.util
 import os
 from typing import Any, Dict
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
+from api_key_context import clear_api_key, set_api_key
 from rp_logger_adapter import setup_flash_logging, get_flash_logger
 from unpack_volume import maybe_unpack
 
@@ -36,6 +37,40 @@ logger = get_flash_logger(__name__)
 # Unpack Flash deployment artifacts if running in Flash mode
 # This is a no-op for Live Serverless and local development
 maybe_unpack()
+
+
+async def extract_api_key_middleware(request: Request, call_next):
+    """Extract API key from Authorization header and set in context.
+
+    This middleware extracts the Bearer token from the Authorization header
+    and makes it available to downstream code via context variables. This
+    enables worker endpoints to propagate API keys to remote calls.
+
+    Args:
+        request: Incoming FastAPI request
+        call_next: Next middleware in chain
+
+    Returns:
+        Response from downstream handlers
+    """
+    # Extract API key from Authorization header
+    auth_header = request.headers.get("Authorization", "")
+    api_key = None
+    token = None
+
+    if auth_header.startswith("Bearer "):
+        api_key = auth_header[7:].strip()  # Remove "Bearer " prefix and trim whitespace
+        token = set_api_key(api_key)
+        logger.debug("Extracted API key from Authorization header")
+
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        # Clean up context after request
+        if token is not None:
+            clear_api_key(token)
+
 
 # Import from bundled /app/runpod_flash (no system package)
 # These imports must happen AFTER maybe_unpack() so /app is in sys.path
@@ -100,6 +135,9 @@ else:
     app = FastAPI(title="Load Balancer Handler")
     logger.info("Child endpoint mode: Using generic Load Balancer handler")
 
+
+# Register API key extraction middleware for both mothership and queue-based modes
+app.middleware("http")(extract_api_key_middleware)
 
 # Queue-based mode endpoints
 if not is_mothership:

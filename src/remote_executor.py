@@ -10,6 +10,7 @@ from runpod_flash.protos.remote_execution import (
     FunctionResponse,
     RemoteExecutorStub,
 )
+from api_key_context import get_api_key
 from rp_logger_adapter import get_flash_logger
 from dependency_installer import DependencyInstaller
 from function_executor import FunctionExecutor
@@ -444,7 +445,8 @@ class RemoteExecutor(RemoteExecutorStub):
             payload = {"input": request.model_dump(exclude_none=True)}
 
             # Make HTTP request to target endpoint
-            api_key = os.getenv("RUNPOD_API_KEY")
+            # Check context API key first (from incoming request), then env var (pre-deployed)
+            api_key = get_api_key() or os.getenv("RUNPOD_API_KEY")
             headers = {"Content-Type": "application/json"}
 
             if api_key:
