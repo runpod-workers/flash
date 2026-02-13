@@ -1,10 +1,10 @@
 import os
-import logging
 import asyncio
 import tempfile
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from rp_logger_adapter import get_flash_logger
 from constants import NAMESPACE, CACHE_DIR, VOLUME_CACHE_PATH
 from subprocess_utils import run_logged_subprocess
 
@@ -13,7 +13,7 @@ class CacheSyncManager:
     """Manages async fire-and-forget cache synchronization to network volume."""
 
     def __init__(self):
-        self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
+        self.logger = get_flash_logger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
         self._should_sync_cached: Optional[bool] = None
         self._endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID")
         self._baseline_time: Optional[float] = None

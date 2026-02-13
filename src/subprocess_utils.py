@@ -16,7 +16,7 @@ from runpod_flash.protos.remote_execution import FunctionResponse
 
 def run_logged_subprocess(
     command: List[str],
-    logger: Optional[logging.Logger] = None,
+    logger: Optional[Any] = None,
     operation_name: str = "",
     timeout: int = 300,
     capture_output: bool = True,
@@ -101,7 +101,7 @@ def run_logged_subprocess(
 
 def run_logged_subprocess_simple(
     command: List[str],
-    logger: Optional[logging.Logger] = None,
+    logger: Optional[Any] = None,
     operation_name: str = "",
     timeout: int = 300,
     **popen_kwargs,
@@ -135,12 +135,13 @@ def run_logged_subprocess_simple(
     return subprocess.Popen(command, **popen_kwargs)
 
 
-def _get_logger_from_context(default_name: str = "subprocess_utils") -> logging.Logger:
+def _get_logger_from_context(default_name: str = "subprocess_utils") -> Any:
     """
     Auto-detect logger from calling context.
 
     Attempts to find a logger in the calling frame, falling back to
-    a default logger if none is found.
+    a default logger if none is found. Supports both standard logging.Logger
+    and FlashLoggerAdapter instances.
 
     Args:
         default_name: Default logger name if auto-detection fails
@@ -159,13 +160,13 @@ def _get_logger_from_context(default_name: str = "subprocess_utils") -> logging.
             # Check if the calling frame has 'self' with a logger
             if "self" in frame.f_locals:
                 obj = frame.f_locals["self"]
-                if hasattr(obj, "logger") and isinstance(obj.logger, logging.Logger):
+                if hasattr(obj, "logger") and _is_valid_logger(obj.logger):
                     return obj.logger
 
             # Check for local logger variable
             if "logger" in frame.f_locals:
                 logger = frame.f_locals["logger"]
-                if isinstance(logger, logging.Logger):
+                if _is_valid_logger(logger):
                     return logger
 
     except Exception:
@@ -174,3 +175,24 @@ def _get_logger_from_context(default_name: str = "subprocess_utils") -> logging.
 
     # Return default logger
     return logging.getLogger(default_name)
+
+
+def _is_valid_logger(obj: object) -> bool:
+    """
+    Check if object is a valid logger (either logging.Logger or FlashLoggerAdapter).
+
+    Args:
+        obj: Object to check
+
+    Returns:
+        True if obj is a valid logger, False otherwise
+    """
+    # Accept standard logging.Logger
+    if isinstance(obj, logging.Logger):
+        return True
+
+    # Accept objects with debug/info/warning/error methods (duck typing)
+    required_methods = {"debug", "info", "warning", "error"}
+    return all(
+        hasattr(obj, method) and callable(getattr(obj, method)) for method in required_methods
+    )

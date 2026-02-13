@@ -1,23 +1,80 @@
 """
-Centralized log streaming system for capturing and streaming logs to FunctionResponse.stdout.
+Centralized log streaming system for capturing stdout to FunctionResponse.stdout.
 
-This module provides thread-safe log buffering and streaming capabilities to ensure
+This module provides thread-safe output buffering and streaming capabilities to ensure
 all system logs (dependency installation, workspace setup, etc.) are visible in the
-remote execution response.
+remote execution response. It captures stdout directly rather than using logging handlers,
+since RunPodLogger uses print() internally.
 """
 
-import logging
+import sys
 import threading
 from collections import deque
 from typing import Optional, Deque, Callable
 
-from logger import get_log_format
+
+class LogCapturingWriter:
+    """
+    Write-through stdout wrapper that captures output while maintaining console visibility.
+
+    This class intercepts stdout writes, buffers complete lines, and forwards all output
+    to the original stdout.
+    """
+
+    def __init__(self, original_stdout, log_streamer: "LogStreamer"):
+        """
+        Initialize the capturing writer.
+
+        Args:
+            original_stdout: The original sys.stdout
+            log_streamer: The LogStreamer instance to buffer lines to
+        """
+        self.original_stdout = original_stdout
+        self.log_streamer = log_streamer
+        self._line_buffer = ""
+        self._lock = threading.Lock()
+
+    def write(self, text: str) -> int:
+        """
+        Write text to stdout, capturing complete lines.
+
+        Args:
+            text: Text to write
+
+        Returns:
+            Number of characters written
+        """
+        with self._lock:
+            # Write to original stdout immediately (write-through)
+            self.original_stdout.write(text)
+
+            # Buffer incomplete lines
+            self._line_buffer += text
+
+            # Process complete lines
+            while "\n" in self._line_buffer:
+                line, self._line_buffer = self._line_buffer.split("\n", 1)
+                if line:  # Don't add empty lines
+                    self.log_streamer.add_log_entry(line)
+
+        return len(text)
+
+    def flush(self) -> None:
+        """Flush both the capturing writer and original stdout."""
+        with self._lock:
+            self.original_stdout.flush()
+
+    def isatty(self) -> bool:
+        """Check if original stdout is a TTY."""
+        try:
+            return bool(self.original_stdout.isatty())
+        except (AttributeError, TypeError):
+            return False
 
 
 class LogStreamer:
     """
-    Thread-safe log streaming system that captures logs and makes them available
-    for streaming to FunctionResponse.stdout.
+    Thread-safe log streaming system that captures stdout and buffers complete lines.
     """
 
     def __init__(self, max_buffer_size: int = 1000):
@@ -29,61 +86,45 @@ class LogStreamer:
         """
         self._buffer: Deque[str] = deque(maxlen=max_buffer_size)
         self._lock = threading.Lock()
-        self._handler: Optional[StreamingHandler] = None
-        self._original_level: Optional[int] = None
+        self._writer: Optional[LogCapturingWriter] = None
+        self._original_stdout: Optional[object] = None
         self._callback: Optional[Callable[[str], None]] = None
 
     def start_streaming(
         self,
-        level: int = logging.INFO,
+        level: int = 20,  # INFO level (unused, kept for compatibility)
         callback: Optional[Callable[[str], None]] = None,
     ) -> None:
         """
-        Start capturing logs and streaming them to buffer.
+        Start capturing stdout.
 
         Args:
-            level: Minimum log level to capture (DEBUG, INFO, WARNING, ERROR)
-            callback: Optional callback function called for each log entry
+            level: Log level (unused, kept for compatibility with previous API)
+            callback: Optional callback function called for each log line
         """
         with self._lock:
-            if self._handler is not None:
+            if self._writer is not None:
                 return  # Already streaming
 
             self._callback = callback
 
-            # Create and configure streaming handler
-            self._handler = StreamingHandler(self)
-            self._handler.setLevel(level)
-
-            # Use same format as main logging
-            formatter = logging.Formatter(get_log_format(level))
-            self._handler.setFormatter(formatter)
-
-            # Add to root logger
-            root_logger = logging.getLogger()
-            self._original_level = root_logger.level
-            root_logger.addHandler(self._handler)
-
-            # Ensure we capture logs at the requested level
-            if root_logger.level > level:
-                root_logger.setLevel(level)
+            # Save original stdout and replace with capturing writer
+            self._original_stdout = sys.stdout
+            self._writer = LogCapturingWriter(self._original_stdout, self)
+            sys.stdout = self._writer
 
     def stop_streaming(self) -> None:
-        """Stop capturing logs and clean up handler."""
+        """Stop capturing stdout and restore original."""
         with self._lock:
-            if self._handler is None:
+            if self._writer is None:
                 return  # Not streaming
 
-            # Remove handler from root logger
-            root_logger = logging.getLogger()
-            root_logger.removeHandler(self._handler)
+            # Restore original stdout
+            if self._original_stdout is not None:
+                sys.stdout = self._original_stdout
 
-            # Restore original log level
-            if self._original_level is not None:
-                root_logger.setLevel(self._original_level)
-
-            self._handler = None
-            self._original_level = None
+            self._writer = None
+            self._original_stdout = None
             self._callback = None
 
     def add_log_entry(self, log_entry: str) -> None:
@@ -91,7 +132,7 @@ class LogStreamer:
         Add a log entry to the buffer.
 
         Args:
-            log_entry: Formatted log entry to add
+            log_entry: Complete log line to add
         """
         with self._lock:
             self._buffer.append(log_entry)
@@ -141,41 +182,6 @@ class LogStreamer:
             return len(self._buffer) > 0
 
 
-class StreamingHandler(logging.Handler):
-    """
-    Custom logging handler that streams log records to a LogStreamer.
-    """
-
-    def __init__(self, log_streamer: LogStreamer):
-        """
-        Initialize the streaming handler.
-
-        Args:
-            log_streamer: LogStreamer instance to send logs to
-        """
-        super().__init__()
-        self.log_streamer = log_streamer
-
-    def emit(self, record: logging.LogRecord) -> None:
-        """
-        Emit a log record to the log streamer.
-
-        Args:
-            record: The log record to emit
-        """
-        try:
-            # Format the log record
-            log_entry = self.format(record)
-
-            # Add to log streamer buffer
-            self.log_streamer.add_log_entry(log_entry)
-
-        except Exception:
-            # Don't let logging errors break the application
-            # This follows Python logging best practices
-            self.handleError(record)
-
-
 # Global log streamer instance for convenience
 _global_streamer: Optional[LogStreamer] = None
 _streamer_lock = threading.Lock()
@@ -197,14 +203,14 @@ def get_global_log_streamer() -> LogStreamer:
 
 
 def start_log_streaming(
-    level: int = logging.INFO, callback: Optional[Callable[[str], None]] = None
+    level: int = 20, callback: Optional[Callable[[str], None]] = None
 ) -> LogStreamer:
     """
     Convenience function to start log streaming with the global streamer.
 
     Args:
-        level: Minimum log level to capture
-        callback: Optional callback for each log entry
+        level: Minimum log level (unused, kept for compatibility)
+        callback: Optional callback for each log line
 
     Returns:
         The global LogStreamer instance

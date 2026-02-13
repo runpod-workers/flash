@@ -6,16 +6,16 @@ routing, not at boot or in background threads (serverless-compatible).
 """
 
 import json
-import logging
 import os
 import time
 from pathlib import Path
 from typing import Any, Dict
 
+from rp_logger_adapter import get_flash_logger
 from constants import FLASH_MANIFEST_PATH
 
 
-logger = logging.getLogger(__name__)
+logger = get_flash_logger(__name__)
 
 # Default TTL for manifest staleness (5 minutes)
 DEFAULT_MANIFEST_TTL_SECONDS = 300
