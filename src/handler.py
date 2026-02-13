@@ -6,12 +6,12 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from constants import MAX_IMPORT_RECOVERY_ATTEMPTS
-from logger import setup_logging
+from rp_logger_adapter import setup_flash_logging
 from unpack_volume import maybe_unpack
 from version import assert_python_version_matches_image, format_version_banner
 
 # Initialize logging configuration
-setup_logging()
+setup_flash_logging()
 
 logger = logging.getLogger(__name__)
 
