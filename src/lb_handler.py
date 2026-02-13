@@ -78,7 +78,10 @@ from runpod_flash.protos.remote_execution import FunctionRequest, FunctionRespon
 from remote_executor import RemoteExecutor  # noqa: E402
 
 # Determine mode based on environment variables
-is_mothership = os.getenv("FLASH_MOTHERSHIP_ID") is not None
+# First check FLASH_IS_MOTHERSHIP (explicit flag set by provisioner)
+# Then check FLASH_MOTHERSHIP_ID (for backwards compatibility)
+is_mothership_flag = os.getenv("FLASH_IS_MOTHERSHIP", "").lower() == "true"
+is_mothership = is_mothership_flag or os.getenv("FLASH_MOTHERSHIP_ID") is not None
 
 if is_mothership:
     # Mothership mode: Import user's FastAPI application
