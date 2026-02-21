@@ -849,6 +849,91 @@ class TestRemoteExecutor:
             assert response.json_result is None
 
     @pytest.mark.asyncio
+    async def test_route_to_endpoint_preserves_serialization_format(self):
+        """Cross-endpoint routing preserves serialization_format in HTTP payload."""
+        request = FunctionRequest(
+            function_name="remote_func",
+            args=[1, 2],
+            kwargs={"key": "value"},
+            serialization_format="json",
+        )
+        endpoint_url = "https://api.runpod.ai/v2/target-ep/run"
+
+        captured_payload = {}
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={"output": {"success": True, "json_result": {"answer": 42}}}
+        )
+
+        # Build async context manager for session.post()
+        mock_post_cm = AsyncMock()
+        mock_post_cm.__aenter__.return_value = mock_response
+        mock_post_cm.__aexit__.return_value = None
+
+        def capture_post(url, json=None, headers=None):
+            if json is not None:
+                captured_payload.update(json)
+            return mock_post_cm
+
+        # Build async context manager for ClientSession()
+        mock_session = AsyncMock()
+        mock_session.post = capture_post
+        mock_session.__aenter__.return_value = mock_session
+        mock_session.__aexit__.return_value = None
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            response = await self.executor._route_to_endpoint(request, endpoint_url)
+
+        assert response.success is True
+        # The payload wraps model_dump in {"input": ...}
+        input_payload = captured_payload["input"]
+        assert input_payload["serialization_format"] == "json"
+        assert input_payload["function_name"] == "remote_func"
+        assert input_payload["args"] == [1, 2]
+        assert input_payload["kwargs"] == {"key": "value"}
+
+    @pytest.mark.asyncio
+    async def test_route_to_endpoint_preserves_default_serialization_format(self):
+        """Cross-endpoint routing includes default cloudpickle serialization_format."""
+        request = FunctionRequest(
+            function_name="remote_func",
+            # No serialization_format -- defaults to "cloudpickle"
+        )
+        endpoint_url = "https://api.runpod.ai/v2/target-ep/run"
+
+        captured_payload = {}
+
+        mock_response = AsyncMock()
+        mock_response.status = 200
+        mock_response.json = AsyncMock(
+            return_value={"output": {"success": True, "result": "encoded"}}
+        )
+
+        mock_post_cm = AsyncMock()
+        mock_post_cm.__aenter__.return_value = mock_response
+        mock_post_cm.__aexit__.return_value = None
+
+        def capture_post(url, json=None, headers=None):
+            if json is not None:
+                captured_payload.update(json)
+            return mock_post_cm
+
+        mock_session = AsyncMock()
+        mock_session.post = capture_post
+        mock_session.__aenter__.return_value = mock_session
+        mock_session.__aexit__.return_value = None
+
+        with patch("aiohttp.ClientSession", return_value=mock_session):
+            response = await self.executor._route_to_endpoint(request, endpoint_url)
+
+        assert response.success is True
+        input_payload = captured_payload["input"]
+        # Default "cloudpickle" is not None, so exclude_none=True keeps it
+        assert input_payload["serialization_format"] == "cloudpickle"
+
+    @pytest.mark.asyncio
     async def test_execute_flash_function_explicit_cloudpickle_format(self):
         """Request with explicit serialization_format='cloudpickle' uses SerializationUtils."""
         request = FunctionRequest(
