@@ -11,6 +11,9 @@ from unittest.mock import patch
 import pytest
 
 
+# WARNING: This function must be kept in sync with lb_handler._is_lb_endpoint() (src/lb_handler.py line ~46).
+# It exists as a standalone copy because importing lb_handler triggers heavy module-level side effects.
+# If you change the production function, update this copy.
 def _is_lb_endpoint_standalone(logger: logging.Logger) -> bool:
     """Standalone copy of _is_lb_endpoint for unit testing.
 

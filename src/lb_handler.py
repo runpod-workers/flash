@@ -43,6 +43,8 @@ from runpod_flash.protos.remote_execution import FunctionRequest, FunctionRespon
 from remote_executor import RemoteExecutor  # noqa: E402
 
 
+# NOTE: A test copy of this function exists in tests/unit/test_lb_handler.py.
+# If you change this function, update the test copy as well.
 def _is_lb_endpoint() -> bool:
     """Determine if this endpoint runs in LB mode (serves user FastAPI routes)."""
     if os.getenv("FLASH_ENDPOINT_TYPE") == "lb":
