@@ -707,3 +707,186 @@ class TestRemoteExecutor:
 
             # Verify function executor was called
             mock_execute.assert_called_once_with(request)
+
+    @pytest.mark.asyncio
+    async def test_execute_flash_function_with_json_args(self):
+        """Request with serialization_format='json' passes raw args/kwargs without deserialization."""
+        request = FunctionRequest(
+            function_name="json_func",
+            args=[42, "hello"],
+            kwargs={"name": "test", "count": 3},
+            serialization_format="json",
+        )
+
+        mock_manifest = {
+            "function_registry": {"json_func": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "json_func",
+                            "module": "json_module",
+                            "is_async": True,
+                        }
+                    ]
+                }
+            },
+        }
+
+        # Track actual args received by the function
+        received_args = []
+        received_kwargs = {}
+
+        async def capturing_func(*args, **kwargs):
+            received_args.extend(args)
+            received_kwargs.update(kwargs)
+            return {"result": "ok"}
+
+        with (
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
+            patch("importlib.import_module") as mock_import,
+            patch("remote_executor.SerializationUtils") as mock_serialization,
+        ):
+            mock_module = Mock()
+            mock_module.json_func = capturing_func
+            mock_import.return_value = mock_module
+
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is True
+            # Raw args/kwargs passed directly -- SerializationUtils never called
+            mock_serialization.deserialize_args.assert_not_called()
+            mock_serialization.deserialize_kwargs.assert_not_called()
+            mock_serialization.serialize_result.assert_not_called()
+            # Verify function received raw Python values (not cloudpickle-encoded)
+            assert received_args == [42, "hello"]
+            assert received_kwargs == {"name": "test", "count": 3}
+
+    @pytest.mark.asyncio
+    async def test_execute_flash_function_json_result(self):
+        """JSON mode returns result in json_result field, not cloudpickle result field."""
+        request = FunctionRequest(
+            function_name="json_result_func",
+            args=[1, 2],
+            kwargs={},
+            serialization_format="json",
+        )
+
+        mock_manifest = {
+            "function_registry": {"json_result_func": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "json_result_func",
+                            "module": "result_module",
+                            "is_async": False,
+                        }
+                    ]
+                }
+            },
+        }
+
+        with (
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
+            patch("importlib.import_module") as mock_import,
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
+            mock_func = Mock(return_value={"prediction": 0.95, "label": "cat"})
+            mock_module = Mock()
+            mock_module.json_result_func = mock_func
+            mock_import.return_value = mock_module
+            mock_to_thread.return_value = {"prediction": 0.95, "label": "cat"}
+
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is True
+            assert response.json_result == {"prediction": 0.95, "label": "cat"}
+            # cloudpickle result field should be None
+            assert response.result is None
+
+    @pytest.mark.asyncio
+    async def test_execute_flash_function_cloudpickle_backward_compat(self):
+        """Request without serialization_format (defaults to cloudpickle) uses SerializationUtils."""
+        request = FunctionRequest(
+            function_name="compat_func",
+            args=self.encode_args(42),
+            kwargs=self.encode_kwargs(name="test"),
+            # No serialization_format -- defaults to "cloudpickle"
+        )
+
+        mock_manifest = {
+            "function_registry": {"compat_func": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "compat_func",
+                            "module": "compat_module",
+                            "is_async": False,
+                        }
+                    ]
+                }
+            },
+        }
+
+        with (
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
+            patch("importlib.import_module") as mock_import,
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
+            mock_func = Mock(return_value="compat_result")
+            mock_module = Mock()
+            mock_module.compat_func = mock_func
+            mock_import.return_value = mock_module
+            mock_to_thread.return_value = "compat_result"
+
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is True
+            # Should use cloudpickle result field, not json_result
+            assert response.result is not None
+            assert response.json_result is None
+
+    @pytest.mark.asyncio
+    async def test_execute_flash_function_explicit_cloudpickle_format(self):
+        """Request with explicit serialization_format='cloudpickle' uses SerializationUtils."""
+        request = FunctionRequest(
+            function_name="explicit_cp_func",
+            args=self.encode_args(10, 20),
+            kwargs=self.encode_kwargs(flag=True),
+            serialization_format="cloudpickle",
+        )
+
+        mock_manifest = {
+            "function_registry": {"explicit_cp_func": "resource_01"},
+            "resources": {
+                "resource_01": {
+                    "functions": [
+                        {
+                            "name": "explicit_cp_func",
+                            "module": "cp_module",
+                            "is_async": False,
+                        }
+                    ]
+                }
+            },
+        }
+
+        with (
+            patch.object(self.executor, "_load_flash_manifest", return_value=mock_manifest),
+            patch("importlib.import_module") as mock_import,
+            patch("asyncio.to_thread") as mock_to_thread,
+        ):
+            mock_func = Mock(return_value="cp_result")
+            mock_module = Mock()
+            mock_module.explicit_cp_func = mock_func
+            mock_import.return_value = mock_module
+            mock_to_thread.return_value = "cp_result"
+
+            response = await self.executor._execute_flash_function(request)
+
+            assert response.success is True
+            # Should use cloudpickle result field
+            assert response.result is not None
+            assert response.json_result is None

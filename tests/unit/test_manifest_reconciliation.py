@@ -480,3 +480,186 @@ class TestRefreshManifestIfStale:
         assert result is True
         # Should not query State Manager for fresh manifest
         mock_client.get_persisted_manifest.assert_not_called()
+
+    # --- Parallel tests using FLASH_ENDPOINT_TYPE=lb (new env var) ---
+
+    @pytest.mark.asyncio
+    async def test_refresh_no_endpoint_id_endpoint_type(self, tmp_path: Path) -> None:
+        """Test refresh skipped when RUNPOD_ENDPOINT_ID not set (FLASH_ENDPOINT_TYPE)."""
+        manifest_path = tmp_path / "manifest.json"
+
+        with patch.dict("os.environ", {"FLASH_ENDPOINT_TYPE": "lb"}, clear=True):
+            result = await refresh_manifest_if_stale(manifest_path)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_refresh_no_api_key_endpoint_type(self, tmp_path: Path) -> None:
+        """Test refresh skipped when RUNPOD_API_KEY not set (FLASH_ENDPOINT_TYPE)."""
+        manifest_path = tmp_path / "manifest.json"
+
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-001",
+                "FLASH_ENDPOINT_TYPE": "lb",
+            },
+            clear=True,
+        ):
+            result = await refresh_manifest_if_stale(manifest_path)
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_refresh_fresh_manifest_no_query_endpoint_type(
+        self, tmp_path: Path, sample_manifest: dict
+    ) -> None:
+        """Test fresh manifest skips State Manager query (FLASH_ENDPOINT_TYPE)."""
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text(json.dumps(sample_manifest))
+
+        mock_client = AsyncMock()
+
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-test-001",
+                "FLASH_ENDPOINT_TYPE": "lb",
+                "RUNPOD_API_KEY": "test-key",
+            },
+            clear=True,
+        ):
+            with patch(
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
+            ):
+                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
+
+        assert result is True
+        # Should not query State Manager for fresh manifest
+        mock_client.get_persisted_manifest.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_refresh_stale_manifest_queries_state_manager_endpoint_type(
+        self, tmp_path: Path, sample_manifest: dict
+    ) -> None:
+        """Test stale manifest queries State Manager (FLASH_ENDPOINT_TYPE)."""
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text(json.dumps(sample_manifest))
+
+        # Set modification time to old
+        old_time = time.time() - 400
+        import os as os_module
+
+        os_module.utime(manifest_path, (old_time, old_time))
+
+        updated_manifest = {
+            **sample_manifest,
+            "resources": {
+                **sample_manifest["resources"],
+                "cpu_endpoint": {
+                    **sample_manifest["resources"]["cpu_endpoint"],
+                    "endpoint_url": "https://ep-cpu-new.runpod.io",
+                },
+            },
+        }
+
+        mock_client = AsyncMock()
+        mock_client.get_persisted_manifest = AsyncMock(return_value=updated_manifest)
+
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-test-001",
+                "FLASH_ENDPOINT_TYPE": "lb",
+                "RUNPOD_API_KEY": "test-key",
+            },
+            clear=True,
+        ):
+            with patch(
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
+            ):
+                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
+
+        assert result is True
+        mock_client.get_persisted_manifest.assert_called_once()
+
+        # Verify manifest was updated
+        saved = json.loads(manifest_path.read_text())
+        assert saved["resources"]["cpu_endpoint"]["endpoint_url"] == "https://ep-cpu-new.runpod.io"
+
+    @pytest.mark.asyncio
+    async def test_refresh_state_manager_error_continues_endpoint_type(
+        self, tmp_path: Path, sample_manifest: dict
+    ) -> None:
+        """Test refresh continues with stale manifest on State Manager error (FLASH_ENDPOINT_TYPE)."""
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text(json.dumps(sample_manifest))
+
+        # Set modification time to old
+        old_time = time.time() - 400
+        import os as os_module
+
+        os_module.utime(manifest_path, (old_time, old_time))
+
+        mock_client = AsyncMock()
+        mock_client.get_persisted_manifest = AsyncMock(side_effect=Exception("API timeout"))
+
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-test-001",
+                "FLASH_ENDPOINT_TYPE": "lb",
+                "RUNPOD_API_KEY": "test-key",
+            },
+            clear=True,
+        ):
+            with patch(
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
+            ):
+                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
+
+        # Should return True (non-fatal error)
+        assert result is True
+
+        # Manifest should be unchanged
+        saved = json.loads(manifest_path.read_text())
+        assert saved == sample_manifest
+
+    @pytest.mark.asyncio
+    async def test_refresh_custom_ttl_endpoint_type(
+        self, tmp_path: Path, sample_manifest: dict
+    ) -> None:
+        """Test refresh with custom TTL value (FLASH_ENDPOINT_TYPE)."""
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text(json.dumps(sample_manifest))
+
+        # Set modification time to 50 seconds old
+        old_time = time.time() - 50
+        import os as os_module
+
+        os_module.utime(manifest_path, (old_time, old_time))
+
+        mock_client = AsyncMock()
+
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-test-001",
+                "FLASH_ENDPOINT_TYPE": "lb",
+                "RUNPOD_API_KEY": "test-key",
+            },
+            clear=True,
+        ):
+            with patch(
+                "runpod_flash.runtime.state_manager_client.StateManagerClient",
+                return_value=mock_client,
+            ):
+                # With TTL of 100 seconds, 50-second-old manifest should be fresh
+                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=100)
+
+        assert result is True
+        # Should not query State Manager for fresh manifest
+        mock_client.get_persisted_manifest.assert_not_called()

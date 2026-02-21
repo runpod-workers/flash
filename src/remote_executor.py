@@ -380,25 +380,36 @@ class RemoteExecutor(RemoteExecutorStub):
             # function_name is guaranteed to be non-None by FunctionRequest validation
             func = getattr(module, function_name)
 
-            # Deserialize args/kwargs (same as Live Serverless)
-            args = SerializationUtils.deserialize_args(request.args)
-            kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
+            # Deserialize args/kwargs based on serialization format
+            serialization_format = getattr(request, "serialization_format", "cloudpickle")
+
+            if serialization_format == "json":
+                args = request.args
+                kwargs = request.kwargs
+            else:
+                args = SerializationUtils.deserialize_args(request.args)
+                kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
             # Execute function
-            # Check if async or sync
             if func_details["is_async"]:
                 if asyncio.iscoroutinefunction(func):
                     result = await func(*args, **kwargs)
                 else:
-                    # Run in executor for blocking calls
                     result = await asyncio.to_thread(func, *args, **kwargs)
             else:
                 result = await asyncio.to_thread(func, *args, **kwargs)
 
-            return FunctionResponse(
-                success=True,
-                result=SerializationUtils.serialize_result(result),
-            )
+            # Serialize result based on format
+            if serialization_format == "json":
+                return FunctionResponse(
+                    success=True,
+                    json_result=result,
+                )
+            else:
+                return FunctionResponse(
+                    success=True,
+                    result=SerializationUtils.serialize_result(result),
+                )
 
         except Exception as e:
             self.logger.error(f"Flash function execution failed: {e}", exc_info=True)
