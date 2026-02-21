@@ -86,6 +86,53 @@ class TestIsFlashDeployment:
         ):
             assert is_flash_deployment() is False
 
+    def test_is_flash_deployment_endpoint_type_lb(self) -> None:
+        """Test detection with FLASH_ENDPOINT_TYPE=lb."""
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-001",
+                "FLASH_ENDPOINT_TYPE": "lb",
+            },
+            clear=True,
+        ):
+            assert is_flash_deployment() is True
+
+    def test_is_flash_deployment_endpoint_type_qb(self) -> None:
+        """Test detection with FLASH_ENDPOINT_TYPE=qb."""
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-001",
+                "FLASH_ENDPOINT_TYPE": "qb",
+            },
+            clear=True,
+        ):
+            assert is_flash_deployment() is True
+
+    def test_is_flash_deployment_legacy_mothership_backward_compat(self) -> None:
+        """Test legacy FLASH_IS_MOTHERSHIP=true still works for backward compatibility."""
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-001",
+                "FLASH_IS_MOTHERSHIP": "true",
+            },
+            clear=True,
+        ):
+            assert is_flash_deployment() is True
+
+    def test_is_flash_deployment_endpoint_type_without_endpoint_id(self) -> None:
+        """Test FLASH_ENDPOINT_TYPE without RUNPOD_ENDPOINT_ID returns False."""
+        with patch.dict(
+            "os.environ",
+            {
+                "FLASH_ENDPOINT_TYPE": "lb",
+            },
+            clear=True,
+        ):
+            assert is_flash_deployment() is False
+
 
 class TestSaveManifest:
     """Test manifest saving."""
