@@ -3,18 +3,18 @@
 This handler provides a FastAPI application for the Load Balancer runtime.
 It supports:
 - /ping: Health check endpoint (required by RunPod Load Balancer)
-- /execute: Remote function execution via HTTP POST (queue-based mode)
-- User's FastAPI app routes (mothership mode)
+- /execute: Remote function execution via HTTP POST (QB endpoint mode)
+- User's FastAPI app routes (LB endpoint mode)
 
 The handler uses worker-flash's RemoteExecutor for function execution.
 
-Mothership Mode (FLASH_IS_MOTHERSHIP=true):
+LB Endpoint Mode (FLASH_ENDPOINT_TYPE=lb):
 - Imports user's FastAPI application from FLASH_MAIN_FILE
 - Loads the app object from FLASH_APP_VARIABLE
 - Preserves all user routes and middleware
 - Adds /ping health check endpoint
 
-Queue-Based Mode (FLASH_IS_MOTHERSHIP not set or false):
+QB Endpoint Mode (FLASH_ENDPOINT_TYPE not set or not "lb"):
 - Creates generic FastAPI app with /execute endpoint
 - Uses RemoteExecutor for function execution
 """
@@ -42,16 +42,26 @@ maybe_unpack()
 from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse  # noqa: E402
 from remote_executor import RemoteExecutor  # noqa: E402
 
-# Determine mode based on environment variables
-is_mothership = os.getenv("FLASH_IS_MOTHERSHIP") == "true"
 
-if is_mothership:
-    # Mothership mode: Import user's FastAPI application
+def _is_lb_endpoint() -> bool:
+    """Determine if this endpoint runs in LB mode (serves user FastAPI routes)."""
+    if os.getenv("FLASH_ENDPOINT_TYPE") == "lb":
+        return True
+    if os.getenv("FLASH_IS_MOTHERSHIP") == "true":
+        logger.warning("FLASH_IS_MOTHERSHIP is deprecated. Use FLASH_ENDPOINT_TYPE=lb instead.")
+        return True
+    return False
+
+
+is_lb_endpoint = _is_lb_endpoint()
+
+if is_lb_endpoint:
+    # LB endpoint mode: Import user's FastAPI application
     try:
         main_file = os.getenv("FLASH_MAIN_FILE", "main.py")
         app_variable = os.getenv("FLASH_APP_VARIABLE", "app")
 
-        logger.info(f"Mothership mode: Importing {app_variable} from {main_file}")
+        logger.info(f"LB endpoint mode: Importing {app_variable} from {main_file}")
 
         # Dynamic import of user's module
         spec = importlib.util.spec_from_file_location("user_main", main_file)
@@ -81,28 +91,28 @@ if is_mothership:
         if not ping_exists:
 
             @app.get("/ping")
-            async def ping_mothership() -> Dict[str, Any]:
-                """Health check endpoint for mothership (added by framework)."""
+            async def ping_lb() -> Dict[str, Any]:
+                """Health check endpoint for LB (added by framework)."""
                 return {
                     "status": "healthy",
-                    "endpoint": "mothership",
+                    "endpoint": "lb",
                     "id": os.getenv("RUNPOD_ENDPOINT_ID", "unknown"),
                 }
 
             logger.info("Added /ping endpoint to user's FastAPI app")
 
     except Exception as error:
-        logger.error(f"Failed to initialize mothership mode: {error}", exc_info=True)
+        logger.error(f"Failed to initialize LB endpoint mode: {error}", exc_info=True)
         raise
 
 else:
     # Queue-based mode: Create generic Load Balancer handler app
     app = FastAPI(title="Load Balancer Handler")
-    logger.info("Queue-based mode: Using generic Load Balancer handler")
+    logger.info("QB endpoint mode: Using generic Load Balancer handler")
 
 
 # Queue-based mode endpoints
-if not is_mothership:
+if not is_lb_endpoint:
 
     @app.get("/ping")
     async def ping() -> Dict[str, Any]:
