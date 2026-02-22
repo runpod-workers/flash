@@ -380,15 +380,9 @@ class RemoteExecutor(RemoteExecutorStub):
             # function_name is guaranteed to be non-None by FunctionRequest validation
             func = getattr(module, function_name)
 
-            # Deserialize args/kwargs based on serialization format
-            serialization_format = getattr(request, "serialization_format", "cloudpickle")
-
-            if serialization_format == "json":
-                args = request.args
-                kwargs = request.kwargs
-            else:
-                args = SerializationUtils.deserialize_args(request.args)
-                kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
+            # Deserialize args/kwargs from cloudpickle-encoded strings
+            args = SerializationUtils.deserialize_args(request.args)
+            kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
             # Execute function
             if func_details["is_async"]:
@@ -399,17 +393,10 @@ class RemoteExecutor(RemoteExecutorStub):
             else:
                 result = await asyncio.to_thread(func, *args, **kwargs)
 
-            # Serialize result based on format
-            if serialization_format == "json":
-                return FunctionResponse(
-                    success=True,
-                    json_result=result,
-                )
-            else:
-                return FunctionResponse(
-                    success=True,
-                    result=SerializationUtils.serialize_result(result),
-                )
+            return FunctionResponse(
+                success=True,
+                result=SerializationUtils.serialize_result(result),
+            )
 
         except Exception as e:
             self.logger.error(f"Flash function execution failed: {e}", exc_info=True)

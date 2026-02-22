@@ -47,12 +47,7 @@ from remote_executor import RemoteExecutor  # noqa: E402
 # If you change this function, update the test copy as well.
 def _is_lb_endpoint() -> bool:
     """Determine if this endpoint runs in LB mode (serves user FastAPI routes)."""
-    if os.getenv("FLASH_ENDPOINT_TYPE") == "lb":
-        return True
-    if os.getenv("FLASH_IS_MOTHERSHIP") == "true":
-        logger.warning("FLASH_IS_MOTHERSHIP is deprecated. Use FLASH_ENDPOINT_TYPE=lb instead.")
-        return True
-    return False
+    return os.getenv("FLASH_ENDPOINT_TYPE") == "lb"
 
 
 is_lb_endpoint = _is_lb_endpoint()

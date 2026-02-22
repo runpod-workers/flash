@@ -127,7 +127,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -160,7 +160,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -196,7 +196,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -232,7 +232,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -281,150 +281,6 @@ class TestRequestScopedManifestRefresh:
         assert saved == local_manifest_data
 
 
-class TestRequestScopedManifestRefreshEndpointType:
-    """Parallel tests for request-scoped manifest refresh using FLASH_ENDPOINT_TYPE=lb."""
-
-    @pytest.mark.asyncio
-    async def test_manifest_refresh_on_cross_endpoint_routing_endpoint_type(
-        self, tmp_path: Path, local_manifest_data: dict, complete_manifest_data: dict
-    ) -> None:
-        """Test manifest refreshes during cross-endpoint routing (FLASH_ENDPOINT_TYPE)."""
-        manifest_path = tmp_path / "flash_manifest.json"
-        manifest_path.write_text(json.dumps(local_manifest_data))
-
-        # Set manifest to stale
-        old_time = time.time() - 400
-        import os as os_module
-
-        os_module.utime(manifest_path, (old_time, old_time))
-
-        mock_client = AsyncMock()
-        mock_client.get_persisted_manifest = AsyncMock(return_value=complete_manifest_data)
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
-
-        assert result is True
-        mock_client.get_persisted_manifest.assert_called_once()
-
-        # Verify manifest now has endpoint URLs
-        saved = json.loads(manifest_path.read_text())
-        assert saved["resources"]["cpu_endpoint"]["endpoint_url"] == "https://ep-cpu-001.runpod.io"
-        assert saved["resources"]["gpu_endpoint"]["endpoint_url"] == "https://ep-gpu-001.runpod.io"
-
-    @pytest.mark.asyncio
-    async def test_manifest_refresh_skipped_if_fresh_endpoint_type(
-        self, tmp_path: Path, local_manifest_data: dict
-    ) -> None:
-        """Test fresh manifest skips refresh (FLASH_ENDPOINT_TYPE)."""
-        manifest_path = tmp_path / "flash_manifest.json"
-        manifest_path.write_text(json.dumps(local_manifest_data))
-
-        mock_client = AsyncMock()
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
-
-        assert result is True
-        # Fresh manifest should not query State Manager
-        mock_client.get_persisted_manifest.assert_not_called()
-
-    @pytest.mark.asyncio
-    async def test_manifest_refresh_continues_on_failure_endpoint_type(
-        self, tmp_path: Path, local_manifest_data: dict
-    ) -> None:
-        """Test execution continues if manifest refresh fails (FLASH_ENDPOINT_TYPE)."""
-        manifest_path = tmp_path / "flash_manifest.json"
-        manifest_path.write_text(json.dumps(local_manifest_data))
-
-        # Set manifest to stale
-        old_time = time.time() - 400
-        import os as os_module
-
-        os_module.utime(manifest_path, (old_time, old_time))
-
-        mock_client = AsyncMock()
-        mock_client.get_persisted_manifest = AsyncMock(side_effect=Exception("API timeout"))
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
-
-        # Should return True (non-fatal error)
-        assert result is True
-
-        # Manifest should be unchanged
-        saved = json.loads(manifest_path.read_text())
-        assert saved == local_manifest_data
-
-    @pytest.mark.asyncio
-    async def test_state_manager_unavailable_graceful_degradation_endpoint_type(
-        self, tmp_path: Path, local_manifest_data: dict
-    ) -> None:
-        """Test graceful degradation when State Manager unavailable (FLASH_ENDPOINT_TYPE)."""
-        manifest_path = tmp_path / "flash_manifest.json"
-        manifest_path.write_text(json.dumps(local_manifest_data))
-
-        # Set manifest to stale
-        old_time = time.time() - 400
-        import os as os_module
-
-        os_module.utime(manifest_path, (old_time, old_time))
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                side_effect=Exception("Connection refused"),
-            ):
-                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
-
-        # Should return True (non-fatal)
-        assert result is True
-
-
 class TestManifestAsSourceOfTruth:
     """Test State Manager as source of truth."""
 
@@ -464,7 +320,7 @@ class TestManifestAsSourceOfTruth:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -522,7 +378,7 @@ class TestManifestAsSourceOfTruth:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -565,7 +421,7 @@ class TestErrorHandling:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -600,7 +456,7 @@ class TestErrorHandling:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -622,244 +478,6 @@ class TestTTLBasedStaleness:
         self, tmp_path: Path, local_manifest_data: dict, complete_manifest_data: dict
     ) -> None:
         """Test multiple refresh calls respect TTL."""
-        manifest_path = tmp_path / "flash_manifest.json"
-        manifest_path.write_text(json.dumps(local_manifest_data))
-
-        mock_client = AsyncMock()
-        mock_client.get_persisted_manifest = AsyncMock(return_value=complete_manifest_data)
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                # First refresh - manifest is fresh, no State Manager query
-                result1 = await refresh_manifest_if_stale(manifest_path, ttl_seconds=60)
-                assert result1 is True
-                assert mock_client.get_persisted_manifest.call_count == 0
-
-                # Second refresh immediately - still fresh, no query
-                result2 = await refresh_manifest_if_stale(manifest_path, ttl_seconds=60)
-                assert result2 is True
-                assert mock_client.get_persisted_manifest.call_count == 0
-
-                # Simulate time passing - manifest becomes stale
-                old_time = time.time() - 70
-                import os as os_module
-
-                os_module.utime(manifest_path, (old_time, old_time))
-
-                # Third refresh - manifest is stale, should query
-                result3 = await refresh_manifest_if_stale(manifest_path, ttl_seconds=60)
-                assert result3 is True
-                assert mock_client.get_persisted_manifest.call_count == 1
-
-
-class TestManifestAsSourceOfTruthEndpointType:
-    """Parallel tests for State Manager as source of truth using FLASH_ENDPOINT_TYPE=lb."""
-
-    @pytest.mark.asyncio
-    async def test_state_manager_overwrites_local_endpoint_type(
-        self, tmp_path: Path, complete_manifest_data: dict
-    ) -> None:
-        """Test that State Manager manifest overwrites local (FLASH_ENDPOINT_TYPE)."""
-        manifest_path = tmp_path / "flash_manifest.json"
-
-        # Write initial local manifest with different endpoint URLs
-        old_manifest = {
-            **complete_manifest_data,
-            "resources": {
-                "cpu_endpoint": {
-                    **complete_manifest_data["resources"]["cpu_endpoint"],
-                    "endpoint_url": "https://old-cpu.runpod.io",
-                },
-                "gpu_endpoint": {
-                    **complete_manifest_data["resources"]["gpu_endpoint"],
-                    "endpoint_url": "https://old-gpu.runpod.io",
-                },
-            },
-        }
-        manifest_path.write_text(json.dumps(old_manifest))
-
-        # Set manifest to stale
-        old_time = time.time() - 400
-        import os as os_module
-
-        os_module.utime(manifest_path, (old_time, old_time))
-
-        mock_client = AsyncMock()
-        mock_client.get_persisted_manifest = AsyncMock(return_value=complete_manifest_data)
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
-
-        assert result is True
-
-        # Verify local was overwritten with State Manager values
-        saved = json.loads(manifest_path.read_text())
-        assert saved["resources"]["cpu_endpoint"]["endpoint_url"] == "https://ep-cpu-001.runpod.io"
-        assert saved["resources"]["gpu_endpoint"]["endpoint_url"] == "https://ep-gpu-001.runpod.io"
-
-    @pytest.mark.asyncio
-    async def test_state_manager_provides_additional_metadata_endpoint_type(
-        self, tmp_path: Path, local_manifest_data: dict, complete_manifest_data: dict
-    ) -> None:
-        """Test State Manager provides provisioning-time metadata (FLASH_ENDPOINT_TYPE)."""
-        manifest_path = tmp_path / "flash_manifest.json"
-        manifest_path.write_text(json.dumps(local_manifest_data))
-
-        # Set manifest to stale
-        old_time = time.time() - 400
-        import os as os_module
-
-        os_module.utime(manifest_path, (old_time, old_time))
-
-        # State manifest has additional fields from provisioning
-        enhanced_manifest = {
-            **complete_manifest_data,
-            "resources": {
-                "cpu_endpoint": {
-                    **complete_manifest_data["resources"]["cpu_endpoint"],
-                    "provisioned_at": "2026-01-22T10:30:00Z",
-                    "pod_id": "ep-cpu-001-pod",
-                    "machine_type": "CPU",
-                },
-                "gpu_endpoint": {
-                    **complete_manifest_data["resources"]["gpu_endpoint"],
-                    "provisioned_at": "2026-01-22T10:31:00Z",
-                    "pod_id": "ep-gpu-001-pod",
-                    "machine_type": "RTX4090",
-                },
-            },
-        }
-
-        mock_client = AsyncMock()
-        mock_client.get_persisted_manifest = AsyncMock(return_value=enhanced_manifest)
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
-
-        assert result is True
-
-        # Verify local contains State Manager's additional metadata
-        saved = json.loads(manifest_path.read_text())
-        assert saved["resources"]["cpu_endpoint"]["provisioned_at"] == "2026-01-22T10:30:00Z"
-        assert saved["resources"]["gpu_endpoint"]["machine_type"] == "RTX4090"
-
-
-class TestErrorHandlingEndpointType:
-    """Parallel tests for error handling using FLASH_ENDPOINT_TYPE=lb."""
-
-    @pytest.mark.asyncio
-    async def test_fallback_to_local_on_state_manager_error_endpoint_type(
-        self, tmp_path: Path, local_manifest_data: dict
-    ) -> None:
-        """Test fallback to local manifest when State Manager errors (FLASH_ENDPOINT_TYPE)."""
-        manifest_path = tmp_path / "flash_manifest.json"
-        manifest_path.write_text(json.dumps(local_manifest_data))
-
-        # Set manifest to stale
-        old_time = time.time() - 400
-        import os as os_module
-
-        os_module.utime(manifest_path, (old_time, old_time))
-
-        mock_client = AsyncMock()
-        mock_client.get_persisted_manifest = AsyncMock(side_effect=Exception("GraphQL API timeout"))
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                result = await refresh_manifest_if_stale(manifest_path, ttl_seconds=300)
-
-        assert result is True
-
-        # Local manifest should be unchanged
-        saved = json.loads(manifest_path.read_text())
-        assert saved == local_manifest_data
-
-    @pytest.mark.asyncio
-    async def test_manifest_file_write_error_endpoint_type(
-        self, local_manifest_data: dict, complete_manifest_data: dict
-    ) -> None:
-        """Test handling of file write errors (FLASH_ENDPOINT_TYPE)."""
-        mock_client = AsyncMock()
-        mock_client.get_persisted_manifest = AsyncMock(return_value=complete_manifest_data)
-
-        # Create mock path that fails on write
-        mock_path = MagicMock(spec=Path)
-        mock_path.exists.return_value = True
-        mock_path.stat.return_value.st_mtime = time.time() - 400
-        mock_path.write_text.side_effect = OSError("Permission denied")
-
-        with patch.dict(
-            "os.environ",
-            {
-                "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "RUNPOD_API_KEY": "test-api-key",
-            },
-            clear=True,
-        ):
-            with patch(
-                "runpod_flash.runtime.state_manager_client.StateManagerClient",
-                return_value=mock_client,
-            ):
-                result = await refresh_manifest_if_stale(mock_path)
-
-        assert result is True  # Non-fatal error
-
-
-class TestTTLBasedStalenessEndpointType:
-    """Parallel tests for TTL-based staleness using FLASH_ENDPOINT_TYPE=lb."""
-
-    @pytest.mark.asyncio
-    async def test_multiple_refreshes_with_ttl_endpoint_type(
-        self, tmp_path: Path, local_manifest_data: dict, complete_manifest_data: dict
-    ) -> None:
-        """Test multiple refresh calls respect TTL (FLASH_ENDPOINT_TYPE)."""
         manifest_path = tmp_path / "flash_manifest.json"
         manifest_path.write_text(json.dumps(local_manifest_data))
 

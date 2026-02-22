@@ -217,13 +217,13 @@ class TestUnpackAppFromVolume:
 class TestShouldUnpackFromVolume:
     """Test environment variable detection logic."""
 
-    def test_should_unpack_for_flash_mothership(self):
-        """Test unpacking is enabled for Flash Mothership deployment."""
+    def test_should_unpack_for_flash_lb_endpoint(self):
+        """Test unpacking is enabled for Flash LB endpoint deployment."""
         with patch.dict(
             os.environ,
             {
                 "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
             },
             clear=False,
         ):
@@ -252,7 +252,7 @@ class TestShouldUnpackFromVolume:
             clear=False,
         ):
             os.environ.pop("FLASH_DISABLE_UNPACK", None)
-            os.environ.pop("FLASH_IS_MOTHERSHIP", None)
+            os.environ.pop("FLASH_ENDPOINT_TYPE", None)
             os.environ.pop("FLASH_RESOURCE_NAME", None)
             assert _should_unpack_from_volume() is False
 
@@ -270,7 +270,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "1",
             },
         ):
@@ -282,7 +282,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "true",
             },
         ):
@@ -294,7 +294,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "yes",
             },
         ):
@@ -306,7 +306,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "false",
             },
         ):
@@ -318,7 +318,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "True",
             },
         ):
@@ -330,7 +330,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "YES",
             },
         ):
@@ -338,105 +338,6 @@ class TestShouldUnpackFromVolume:
 
     def test_should_not_unpack_when_disabled_with_mixed_case(self):
         """Test unpacking is disabled when FLASH_DISABLE_UNPACK=Yes (mixed case)."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
-                "FLASH_DISABLE_UNPACK": "Yes",
-            },
-        ):
-            assert _should_unpack_from_volume() is False
-
-    # --- Parallel tests using FLASH_ENDPOINT_TYPE=lb (new env var) ---
-
-    def test_should_unpack_for_flash_lb_endpoint_type(self):
-        """Test unpacking is enabled for FLASH_ENDPOINT_TYPE=lb deployment."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_ENDPOINT_TYPE": "lb",
-            },
-            clear=False,
-        ):
-            os.environ.pop("FLASH_DISABLE_UNPACK", None)
-            assert _should_unpack_from_volume() is True
-
-    def test_should_not_unpack_endpoint_type_when_disabled_with_1(self):
-        """Test unpacking is disabled when FLASH_DISABLE_UNPACK=1 with FLASH_ENDPOINT_TYPE."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "FLASH_DISABLE_UNPACK": "1",
-            },
-        ):
-            assert _should_unpack_from_volume() is False
-
-    def test_should_not_unpack_endpoint_type_when_disabled_with_true(self):
-        """Test unpacking is disabled when FLASH_DISABLE_UNPACK=true with FLASH_ENDPOINT_TYPE."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "FLASH_DISABLE_UNPACK": "true",
-            },
-        ):
-            assert _should_unpack_from_volume() is False
-
-    def test_should_not_unpack_endpoint_type_when_disabled_with_yes(self):
-        """Test unpacking is disabled when FLASH_DISABLE_UNPACK=yes with FLASH_ENDPOINT_TYPE."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "FLASH_DISABLE_UNPACK": "yes",
-            },
-        ):
-            assert _should_unpack_from_volume() is False
-
-    def test_should_unpack_endpoint_type_when_disable_flag_has_wrong_value(self):
-        """Test unpacking is enabled when FLASH_DISABLE_UNPACK=false with FLASH_ENDPOINT_TYPE."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "FLASH_DISABLE_UNPACK": "false",
-            },
-        ):
-            assert _should_unpack_from_volume() is True
-
-    def test_should_not_unpack_endpoint_type_when_disabled_with_uppercase_true(self):
-        """Test unpacking is disabled when FLASH_DISABLE_UNPACK=True with FLASH_ENDPOINT_TYPE."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "FLASH_DISABLE_UNPACK": "True",
-            },
-        ):
-            assert _should_unpack_from_volume() is False
-
-    def test_should_not_unpack_endpoint_type_when_disabled_with_uppercase_yes(self):
-        """Test unpacking is disabled when FLASH_DISABLE_UNPACK=YES with FLASH_ENDPOINT_TYPE."""
-        with patch.dict(
-            os.environ,
-            {
-                "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_ENDPOINT_TYPE": "lb",
-                "FLASH_DISABLE_UNPACK": "YES",
-            },
-        ):
-            assert _should_unpack_from_volume() is False
-
-    def test_should_not_unpack_endpoint_type_when_disabled_with_mixed_case(self):
-        """Test unpacking is disabled when FLASH_DISABLE_UNPACK=Yes with FLASH_ENDPOINT_TYPE."""
         with patch.dict(
             os.environ,
             {
