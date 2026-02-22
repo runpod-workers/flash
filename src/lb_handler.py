@@ -9,8 +9,8 @@ It supports:
 The handler uses worker-flash's RemoteExecutor for function execution.
 
 LB Endpoint Mode (FLASH_ENDPOINT_TYPE=lb):
-- Imports user's FastAPI application from FLASH_MAIN_FILE
-- Loads the app object from FLASH_APP_VARIABLE
+- Auto-discovers generated handler from FLASH_RESOURCE_NAME
+- Loads handler_{resource_name}.py with FastAPI app
 - Preserves all user routes and middleware
 - Adds /ping health check endpoint
 
@@ -53,24 +53,26 @@ def _is_lb_endpoint() -> bool:
 is_lb_endpoint = _is_lb_endpoint()
 
 if is_lb_endpoint:
-    # LB endpoint mode: Import user's FastAPI application
+    # LB endpoint mode: Auto-discover generated handler from FLASH_RESOURCE_NAME
     try:
-        main_file = os.getenv("FLASH_MAIN_FILE", "main.py")
-        app_variable = os.getenv("FLASH_APP_VARIABLE", "app")
+        resource_name = os.getenv("FLASH_RESOURCE_NAME")
+        if not resource_name:
+            raise RuntimeError("FLASH_RESOURCE_NAME not set. Cannot discover generated LB handler.")
 
-        logger.info(f"LB endpoint mode: Importing {app_variable} from {main_file}")
+        handler_file = f"/app/handler_{resource_name}.py"
+        app_variable = "app"
 
-        # Dynamic import of user's module
-        spec = importlib.util.spec_from_file_location("user_main", main_file)
+        logger.info("LB endpoint mode: importing %s from %s", app_variable, handler_file)
+
+        spec = importlib.util.spec_from_file_location("user_main", handler_file)
         if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot find or load {main_file}")
+            raise ImportError(f"Cannot find or load {handler_file}")
 
         user_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(user_module)
 
-        # Get the FastAPI app from user's module
         if not hasattr(user_module, app_variable):
-            raise AttributeError(f"Module {main_file} does not have '{app_variable}' attribute")
+            raise AttributeError(f"Module {handler_file} does not have '{app_variable}' attribute")
 
         app = getattr(user_module, app_variable)
 
@@ -79,7 +81,7 @@ if is_lb_endpoint:
                 f"Expected FastAPI instance, got {type(app).__name__} for {app_variable}"
             )
 
-        logger.info(f"Successfully imported FastAPI app '{app_variable}' from {main_file}")
+        logger.info("Successfully imported FastAPI app from %s", handler_file)
 
         # Add /ping endpoint if not already present
         # Check if /ping route already exists to avoid adding a duplicate health check endpoint
