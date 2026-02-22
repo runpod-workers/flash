@@ -4,7 +4,7 @@ import pytest
 import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
-from handler import handler
+from handler import handler, _load_generated_handler
 from runpod_flash.protos.remote_execution import FunctionResponse
 
 
@@ -143,3 +143,75 @@ class TestHandler:
             assert result["success"] is True
             assert "instance_id" in result
             assert "instance_info" in result
+
+
+class TestLoadGeneratedHandler:
+    """Test cases for _load_generated_handler delegation logic."""
+
+    def test_returns_none_when_no_resource_name(self):
+        """Without FLASH_RESOURCE_NAME, returns None (fallback to FunctionRequest)."""
+        with patch.dict("os.environ", {}, clear=True):
+            result = _load_generated_handler()
+        assert result is None
+
+    def test_returns_none_when_handler_file_missing(self, tmp_path):
+        """With FLASH_RESOURCE_NAME but no handler file, returns None."""
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            with patch("handler.Path") as mock_path_cls:
+                mock_path = mock_path_cls.return_value
+                mock_path.exists.return_value = False
+                result = _load_generated_handler()
+        assert result is None
+
+    def test_loads_generated_handler_from_file(self, tmp_path):
+        """With valid generated handler file, loads and returns handler function."""
+        handler_file = tmp_path / "handler_gpu_config.py"
+        handler_file.write_text(
+            "async def handler(event):\n"
+            "    return {'result': event.get('input', {}).get('prompt', 'default')}\n"
+        )
+
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            with patch("handler.Path", return_value=handler_file):
+                result = _load_generated_handler()
+
+        assert result is not None
+        assert callable(result)
+
+    def test_returns_none_when_handler_attr_missing(self, tmp_path):
+        """If generated module has no 'handler' attribute, returns None."""
+        handler_file = tmp_path / "handler_gpu_config.py"
+        handler_file.write_text("def not_a_handler(): pass\n")
+
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            with patch("handler.Path", return_value=handler_file):
+                result = _load_generated_handler()
+
+        assert result is None
+
+    def test_returns_none_when_spec_creation_fails(self):
+        """If importlib cannot create spec, returns None."""
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            with patch("handler.Path") as mock_path_cls:
+                mock_path = mock_path_cls.return_value
+                mock_path.exists.return_value = True
+                with patch(
+                    "handler.importlib.util.spec_from_file_location",
+                    return_value=None,
+                ):
+                    result = _load_generated_handler()
+
+        assert result is None
+
+    def test_returns_none_on_import_error(self, tmp_path):
+        """If generated handler has ImportError, falls back gracefully."""
+        handler_file = tmp_path / "handler_gpu_config.py"
+        handler_file.write_text(
+            "from nonexistent_package import missing_function\ndef handler(event): pass\n"
+        )
+
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            with patch("handler.Path", return_value=handler_file):
+                result = _load_generated_handler()
+
+        assert result is None
