@@ -43,11 +43,53 @@ from runpod_flash.protos.remote_execution import FunctionRequest, FunctionRespon
 from remote_executor import RemoteExecutor  # noqa: E402
 
 
-# NOTE: A test copy of this function exists in tests/unit/test_lb_handler.py.
-# If you change this function, update the test copy as well.
 def _is_lb_endpoint() -> bool:
     """Determine if this endpoint runs in LB mode (serves user FastAPI routes)."""
     return os.getenv("FLASH_ENDPOINT_TYPE") == "lb"
+
+
+def _discover_lb_app(handler_dir: str = "/app") -> FastAPI:
+    """Auto-discover and load the generated LB handler's FastAPI app.
+
+    Derives handler path from FLASH_RESOURCE_NAME and imports the module.
+
+    Args:
+        handler_dir: Base directory for handler files (default /app).
+
+    Returns:
+        FastAPI app from the generated handler.
+
+    Raises:
+        RuntimeError: If FLASH_RESOURCE_NAME is not set.
+        ImportError: If the handler file cannot be found or loaded.
+        AttributeError: If the handler module lacks an 'app' attribute.
+        TypeError: If the 'app' attribute is not a FastAPI instance.
+    """
+    resource_name = os.getenv("FLASH_RESOURCE_NAME")
+    if not resource_name:
+        raise RuntimeError("FLASH_RESOURCE_NAME not set. Cannot discover generated LB handler.")
+
+    handler_file = f"{handler_dir}/handler_{resource_name}.py"
+    app_variable = "app"
+
+    spec = importlib.util.spec_from_file_location("user_main", handler_file)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot find or load {handler_file}")
+
+    user_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(user_module)
+
+    if not hasattr(user_module, app_variable):
+        raise AttributeError(f"Module {handler_file} does not have '{app_variable}' attribute")
+
+    discovered_app = getattr(user_module, app_variable)
+
+    if not isinstance(discovered_app, FastAPI):
+        raise TypeError(
+            f"Expected FastAPI instance, got {type(discovered_app).__name__} for {app_variable}"
+        )
+
+    return discovered_app
 
 
 is_lb_endpoint = _is_lb_endpoint()
@@ -55,36 +97,10 @@ is_lb_endpoint = _is_lb_endpoint()
 if is_lb_endpoint:
     # LB endpoint mode: Auto-discover generated handler from FLASH_RESOURCE_NAME
     try:
-        resource_name = os.getenv("FLASH_RESOURCE_NAME")
-        if not resource_name:
-            raise RuntimeError("FLASH_RESOURCE_NAME not set. Cannot discover generated LB handler.")
-
-        handler_file = f"/app/handler_{resource_name}.py"
-        app_variable = "app"
-
-        logger.info("LB endpoint mode: importing %s from %s", app_variable, handler_file)
-
-        spec = importlib.util.spec_from_file_location("user_main", handler_file)
-        if spec is None or spec.loader is None:
-            raise ImportError(f"Cannot find or load {handler_file}")
-
-        user_module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(user_module)
-
-        if not hasattr(user_module, app_variable):
-            raise AttributeError(f"Module {handler_file} does not have '{app_variable}' attribute")
-
-        app = getattr(user_module, app_variable)
-
-        if not isinstance(app, FastAPI):
-            raise TypeError(
-                f"Expected FastAPI instance, got {type(app).__name__} for {app_variable}"
-            )
-
-        logger.info("Successfully imported FastAPI app from %s", handler_file)
+        app = _discover_lb_app()
+        logger.info("Successfully imported FastAPI app for LB endpoint")
 
         # Add /ping endpoint if not already present
-        # Check if /ping route already exists to avoid adding a duplicate health check endpoint
         ping_exists = any(getattr(route, "path", None) == "/ping" for route in app.routes)
 
         if not ping_exists:
@@ -101,7 +117,7 @@ if is_lb_endpoint:
             logger.info("Added /ping endpoint to user's FastAPI app")
 
     except Exception as error:
-        logger.error(f"Failed to initialize LB endpoint mode: {error}", exc_info=True)
+        logger.error("Failed to initialize LB endpoint mode: %s", error, exc_info=True)
         raise
 
 else:

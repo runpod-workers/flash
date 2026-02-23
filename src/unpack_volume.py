@@ -126,7 +126,6 @@ def maybe_unpack():
         if _UNPACKED:
             return
 
-        _UNPACKED = True
         logger.info("unpacking app from volume")
 
         last_error: Exception | None = None
@@ -139,12 +138,12 @@ def maybe_unpack():
                 last_error = e
                 logger.error(
                     "failed to unpack app from volume (attempt %s/%s): %s",
-                    attempt,
+                    attempt + 1,
                     DEFAULT_TARBALL_UNPACK_ATTEMPTS,
                     e,
                     exc_info=True,
                 )
-                if attempt < DEFAULT_TARBALL_UNPACK_ATTEMPTS:
+                if attempt < DEFAULT_TARBALL_UNPACK_ATTEMPTS - 1:
                     sleep(DEFAULT_TARBALL_UNPACK_INTERVAL)
         raise RuntimeError(
             f"failed to unpack app from volume after retries: {last_error}"
