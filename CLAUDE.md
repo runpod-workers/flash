@@ -18,8 +18,8 @@ worker-flash (v1.0.1), a RunPod Serverless worker that executes `@remote` functi
 
 ### Entry Points
 
-- **QB Handler** (`src/handler.py:37-40`) -- RunPod serverless entry via `runpod.serverless.start()`. Receives jobs from queue, delegates to `RemoteExecutor`.
-- **LB Handler** (`src/lb_handler.py:148-152`) -- FastAPI app served by uvicorn. HTTP endpoints for load-balanced requests.
+- **QB Handler** (`src/handler.py`) -- RunPod serverless entry via `runpod.serverless.start()`. Receives jobs from queue, delegates to `RemoteExecutor`.
+- **LB Handler** (`src/lb_handler.py`) -- FastAPI app served by uvicorn. HTTP endpoints for load-balanced requests.
 
 ### Module Structure
 
