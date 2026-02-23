@@ -47,6 +47,6 @@ DEFAULT_ENDPOINT_TIMEOUT = 300
 """Default timeout in seconds for cross-endpoint HTTP requests."""
 
 DEFAULT_TARBALL_UNPACK_ATTEMPTS = 3
-"""Number of times the LB endpoint will attempt to unpack the worker-flash tarball from mounted volume"""
+"""Number of times the Flash-deployed endpoint will attempt to unpack the worker-flash tarball from mounted volume."""
 DEFAULT_TARBALL_UNPACK_INTERVAL = 30
-"""Time in seconds the LB endpoint will wait between tarball unpack attempts"""
+"""Time in seconds the Flash-deployed endpoint will wait between tarball unpack attempts."""

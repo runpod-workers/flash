@@ -22,6 +22,7 @@ QB Endpoint Mode (FLASH_ENDPOINT_TYPE not set or not "lb"):
 import importlib.util
 import logging
 import os
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import FastAPI
@@ -60,8 +61,9 @@ def _discover_lb_app(handler_dir: str = "/app") -> FastAPI:
         FastAPI app from the generated handler.
 
     Raises:
-        RuntimeError: If FLASH_RESOURCE_NAME is not set.
-        ImportError: If the handler file cannot be found or loaded.
+        RuntimeError: If FLASH_RESOURCE_NAME is not set or resolves outside handler_dir.
+        FileNotFoundError: If the handler file does not exist.
+        ImportError: If the handler module cannot produce a valid spec.
         AttributeError: If the handler module lacks an 'app' attribute.
         TypeError: If the 'app' attribute is not a FastAPI instance.
     """
@@ -70,6 +72,11 @@ def _discover_lb_app(handler_dir: str = "/app") -> FastAPI:
         raise RuntimeError("FLASH_RESOURCE_NAME not set. Cannot discover generated LB handler.")
 
     handler_file = f"{handler_dir}/handler_{resource_name}.py"
+
+    handler_path = Path(handler_file)
+    if not handler_path.resolve().is_relative_to(Path(handler_dir).resolve()):
+        raise RuntimeError(f"FLASH_RESOURCE_NAME '{resource_name}' resolves outside {handler_dir}")
+
     app_variable = "app"
 
     spec = importlib.util.spec_from_file_location("user_main", handler_file)

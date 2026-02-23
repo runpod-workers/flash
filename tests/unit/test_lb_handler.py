@@ -124,3 +124,11 @@ class TestDiscoverLbApp:
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "wrong_type"}, clear=False):
             with pytest.raises(TypeError, match="Expected FastAPI instance"):
                 _import_lb_handler._discover_lb_app(handler_dir=str(tmp_path))
+
+    def test_raises_when_resource_name_has_path_traversal(
+        self, _import_lb_handler, tmp_path
+    ) -> None:
+        """Path traversal in FLASH_RESOURCE_NAME raises RuntimeError."""
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "../../../etc/passwd"}, clear=False):
+            with pytest.raises(RuntimeError, match="resolves outside"):
+                _import_lb_handler._discover_lb_app(handler_dir=str(tmp_path))

@@ -33,6 +33,14 @@ def _load_generated_handler() -> Optional[Any]:
 
     handler_file = Path(f"/app/handler_{resource_name}.py")
 
+    if not handler_file.resolve().is_relative_to(Path("/app").resolve()):
+        logger.warning(
+            "FLASH_RESOURCE_NAME '%s' resolves outside /app. "
+            "Falling back to FunctionRequest handler.",
+            resource_name,
+        )
+        return None
+
     if not handler_file.exists():
         logger.warning(
             "Generated handler file %s not found for resource '%s'. "
@@ -87,6 +95,15 @@ def _load_generated_handler() -> Optional[Any]:
             "Ensure the flash build pipeline generates a 'handler' function. "
             "Falling back to FunctionRequest handler.",
             handler_file,
+        )
+        return None
+
+    if not callable(generated):
+        logger.warning(
+            "Generated handler %s has a 'handler' attribute but it is not callable (%s). "
+            "Falling back to FunctionRequest handler.",
+            handler_file,
+            type(generated).__name__,
         )
         return None
 

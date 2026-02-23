@@ -237,3 +237,20 @@ class TestLoadGeneratedHandler:
                 result = _load_generated_handler()
 
         assert result is None
+
+    def test_returns_none_when_resource_name_has_path_traversal(self):
+        """Path traversal in FLASH_RESOURCE_NAME returns None."""
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "../../../etc/passwd"}):
+            result = _load_generated_handler()
+        assert result is None
+
+    def test_returns_none_when_handler_not_callable(self, tmp_path):
+        """Non-callable 'handler' attribute returns None."""
+        handler_file = tmp_path / "handler_gpu_config.py"
+        handler_file.write_text("handler = 42\n")
+
+        with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
+            with patch("handler.Path", return_value=handler_file):
+                result = _load_generated_handler()
+
+        assert result is None

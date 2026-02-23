@@ -85,7 +85,7 @@ def _should_unpack_from_volume() -> bool:
 
     Detection logic:
     1. Honor explicit disable flag (FLASH_DISABLE_UNPACK)
-    2. Must be in RunPod environment (RUNPOD_POD_ID or RUNPOD_ENDPOINT_ID)
+    2. Must be in RunPod environment (RUNPOD_ENDPOINT_ID)
     3. Must be Flash deployment (FLASH_ENDPOINT_TYPE or FLASH_RESOURCE_NAME)
 
     Returns:
