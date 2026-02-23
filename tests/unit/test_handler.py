@@ -163,18 +163,6 @@ class TestLoadGeneratedHandler:
                 result = _load_generated_handler()
         assert result is None
 
-    def test_raises_when_deployed_qb_and_handler_file_missing(self, tmp_path):
-        """Deployed QB endpoint with missing handler file raises FileNotFoundError."""
-        with patch.dict(
-            "os.environ",
-            {"FLASH_RESOURCE_NAME": "gpu_config", "FLASH_ENDPOINT_TYPE": "qb"},
-        ):
-            with patch("handler.Path") as mock_path_cls:
-                mock_path = mock_path_cls.return_value
-                mock_path.exists.return_value = False
-                with pytest.raises(FileNotFoundError, match="not found"):
-                    _load_generated_handler()
-
     def test_loads_generated_handler_from_file(self, tmp_path):
         """With valid generated handler file, loads and returns handler function."""
         handler_file = tmp_path / "handler_gpu_config.py"
@@ -217,21 +205,6 @@ class TestLoadGeneratedHandler:
 
         assert result is None
 
-    def test_raises_on_import_error_when_deployed_qb(self, tmp_path):
-        """Deployed QB endpoint with ImportError raises RuntimeError."""
-        handler_file = tmp_path / "handler_gpu_config.py"
-        handler_file.write_text(
-            "from nonexistent_package import missing_function\ndef handler(event): pass\n"
-        )
-
-        with patch.dict(
-            "os.environ",
-            {"FLASH_RESOURCE_NAME": "gpu_config", "FLASH_ENDPOINT_TYPE": "qb"},
-        ):
-            with patch("handler.Path", return_value=handler_file):
-                with pytest.raises(RuntimeError, match="failed to import"):
-                    _load_generated_handler()
-
     def test_returns_none_on_syntax_error(self, tmp_path):
         """SyntaxError in generated handler logs error and returns None."""
         handler_file = tmp_path / "handler_gpu_config.py"
@@ -264,16 +237,3 @@ class TestLoadGeneratedHandler:
                 result = _load_generated_handler()
 
         assert result is None
-
-    def test_raises_when_deployed_qb_and_handler_attr_missing(self, tmp_path):
-        """Deployed QB endpoint with missing handler attr raises RuntimeError."""
-        handler_file = tmp_path / "handler_gpu_config.py"
-        handler_file.write_text("def not_a_handler(): pass\n")
-
-        with patch.dict(
-            "os.environ",
-            {"FLASH_RESOURCE_NAME": "gpu_config", "FLASH_ENDPOINT_TYPE": "qb"},
-        ):
-            with patch("handler.Path", return_value=handler_file):
-                with pytest.raises(RuntimeError, match="no 'handler' attribute"):
-                    _load_generated_handler()

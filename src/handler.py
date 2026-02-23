@@ -24,32 +24,20 @@ def _load_generated_handler() -> Optional[Any]:
     build pipeline. These handlers accept plain JSON input without
     FunctionRequest/cloudpickle serialization.
 
-    For deployed QB endpoints (FLASH_ENDPOINT_TYPE=qb), failures raise
-    instead of falling back, since the generated handler is required.
-
     Returns:
         Handler function if generated handler found, None otherwise.
-
-    Raises:
-        FileNotFoundError: If deployed QB endpoint and handler file missing.
-        RuntimeError: If deployed QB endpoint and handler fails to load.
     """
     resource_name = os.getenv("FLASH_RESOURCE_NAME")
     if not resource_name:
         return None
 
-    is_deployed_qb = os.getenv("FLASH_ENDPOINT_TYPE") == "qb"
     handler_file = Path(f"/app/handler_{resource_name}.py")
 
     if not handler_file.exists():
-        msg = (
-            "Generated handler file %s not found for resource '%s'. "
-            "The build artifact may be incomplete."
-        )
-        if is_deployed_qb:
-            raise FileNotFoundError(msg % (handler_file, resource_name))
         logger.warning(
-            msg + " Falling back to FunctionRequest handler.",
+            "Generated handler file %s not found for resource '%s'. "
+            "The build artifact may be incomplete. "
+            "Falling back to FunctionRequest handler.",
             handler_file,
             resource_name,
         )
@@ -64,14 +52,10 @@ def _load_generated_handler() -> Optional[Any]:
     try:
         spec.loader.exec_module(mod)
     except ImportError as e:
-        msg = (
-            "Generated handler %s failed to import (missing dependency: %s). "
-            "Deploy with --use-local-flash to include latest runpod_flash."
-        )
-        if is_deployed_qb:
-            raise RuntimeError(msg % (handler_file, e)) from e
         logger.warning(
-            msg + " Falling back to FunctionRequest handler.",
+            "Generated handler %s failed to import (missing dependency: %s). "
+            "Deploy with --use-local-flash to include latest runpod_flash. "
+            "Falling back to FunctionRequest handler.",
             handler_file,
             e,
         )
@@ -79,34 +63,31 @@ def _load_generated_handler() -> Optional[Any]:
     except SyntaxError as e:
         logger.error(
             "Generated handler %s has a syntax error: %s. "
-            "This indicates a bug in the flash build pipeline.",
+            "This indicates a bug in the flash build pipeline. "
+            "Falling back to FunctionRequest handler.",
             handler_file,
             e,
         )
-        if is_deployed_qb:
-            raise RuntimeError(f"Generated handler {handler_file} has a syntax error: {e}") from e
         return None
     except Exception as e:
         logger.error(
-            "Generated handler %s failed to load unexpectedly: %s (%s).",
+            "Generated handler %s failed to load unexpectedly: %s (%s). "
+            "Falling back to FunctionRequest handler.",
             handler_file,
             e,
             type(e).__name__,
             exc_info=True,
         )
-        if is_deployed_qb:
-            raise RuntimeError(f"Generated handler {handler_file} failed to load: {e}") from e
         return None
 
     generated = getattr(mod, "handler", None)
     if generated is None:
         logger.warning(
             "Generated handler %s loaded but has no 'handler' attribute. "
-            "Ensure the flash build pipeline generates a 'handler' function.",
+            "Ensure the flash build pipeline generates a 'handler' function. "
+            "Falling back to FunctionRequest handler.",
             handler_file,
         )
-        if is_deployed_qb:
-            raise RuntimeError(f"Generated handler {handler_file} has no 'handler' attribute")
         return None
 
     logger.info("Loaded generated handler from %s", handler_file)
