@@ -71,15 +71,17 @@ graph TB
 
 The handler automatically detects the deployment mode using environment variables:
 
-| Environment | RUNPOD_POD_ID | FLASH_* vars | Mode Detected |
-|-------------|---------------|--------------|---------------|
+| Environment | RUNPOD_ENDPOINT_ID | FLASH_* vars | Mode Detected |
+|-------------|-------------------|--------------|---------------|
 | Local dev | ❌ Not set | ❌ Not set | Live Serverless only |
 | Live Serverless | ✅ Set | ❌ Not set | Live Serverless |
-| Flash Mothership | ✅ Set | ✅ FLASH_IS_MOTHERSHIP=true | Flash Deployed |
+| Flash LB Endpoint | ✅ Set | ✅ FLASH_ENDPOINT_TYPE=lb | Flash Deployed |
+| Flash QB Endpoint | ✅ Set | ✅ FLASH_ENDPOINT_TYPE=qb | Flash Deployed |
 | Flash Child | ✅ Set | ✅ FLASH_RESOURCE_NAME | Flash Deployed |
 
 Flash-specific environment variables:
-- `FLASH_IS_MOTHERSHIP=true` - Set for mothership endpoints
+- `FLASH_ENDPOINT_TYPE=lb` - Set for load-balanced endpoints
+- `FLASH_ENDPOINT_TYPE=qb` - Set for queue-based endpoints
 - `FLASH_RESOURCE_NAME` - Specifies resource config name
 
 ## Request Format Differences

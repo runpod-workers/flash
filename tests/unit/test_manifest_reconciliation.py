@@ -41,14 +41,15 @@ def sample_manifest() -> dict:
 class TestIsFlashDeployment:
     """Test Flash deployment detection."""
 
-    def test_is_flash_deployment_mothership(self) -> None:
-        """Test detection with FLASH_IS_MOTHERSHIP."""
+    def test_is_flash_deployment_endpoint_type_lb(self) -> None:
+        """Test detection with FLASH_ENDPOINT_TYPE=lb."""
         with patch.dict(
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
             },
+            clear=True,
         ):
             assert is_flash_deployment() is True
 
@@ -69,7 +70,7 @@ class TestIsFlashDeployment:
         with patch.dict(
             "os.environ",
             {
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
             },
             clear=True,
         ):
@@ -81,6 +82,29 @@ class TestIsFlashDeployment:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-001",
+            },
+            clear=True,
+        ):
+            assert is_flash_deployment() is False
+
+    def test_is_flash_deployment_endpoint_type_qb(self) -> None:
+        """Test detection with FLASH_ENDPOINT_TYPE=qb."""
+        with patch.dict(
+            "os.environ",
+            {
+                "RUNPOD_ENDPOINT_ID": "ep-001",
+                "FLASH_ENDPOINT_TYPE": "qb",
+            },
+            clear=True,
+        ):
+            assert is_flash_deployment() is True
+
+    def test_is_flash_deployment_endpoint_type_without_endpoint_id(self) -> None:
+        """Test FLASH_ENDPOINT_TYPE without RUNPOD_ENDPOINT_ID returns False."""
+        with patch.dict(
+            "os.environ",
+            {
+                "FLASH_ENDPOINT_TYPE": "lb",
             },
             clear=True,
         ):
@@ -260,7 +284,7 @@ class TestRefreshManifestIfStale:
         """Test refresh skipped when RUNPOD_ENDPOINT_ID not set."""
         manifest_path = tmp_path / "manifest.json"
 
-        with patch.dict("os.environ", {"FLASH_IS_MOTHERSHIP": "true"}, clear=True):
+        with patch.dict("os.environ", {"FLASH_ENDPOINT_TYPE": "lb"}, clear=True):
             result = await refresh_manifest_if_stale(manifest_path)
 
         assert result is False
@@ -274,7 +298,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
             },
             clear=True,
         ):
@@ -296,7 +320,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,
@@ -343,7 +367,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,
@@ -382,7 +406,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,
@@ -418,7 +442,7 @@ class TestRefreshManifestIfStale:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-key",
             },
             clear=True,

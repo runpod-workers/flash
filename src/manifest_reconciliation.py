@@ -30,7 +30,7 @@ def is_flash_deployment() -> bool:
     endpoint_id = os.getenv("RUNPOD_ENDPOINT_ID")
     is_flash = any(
         [
-            os.getenv("FLASH_IS_MOTHERSHIP") == "true",
+            os.getenv("FLASH_ENDPOINT_TYPE") in ("lb", "qb"),
             os.getenv("FLASH_RESOURCE_NAME"),
         ]
     )
@@ -78,8 +78,9 @@ def _is_manifest_stale(
         if is_stale:
             logger.debug(f"Manifest is stale: {age_seconds:.0f}s old (TTL: {ttl_seconds}s)")
         return is_stale
-    except OSError:
-        return True  # Error reading file, consider stale
+    except OSError as e:
+        logger.debug("Cannot stat manifest file %s: %s. Treating as stale.", manifest_path, e)
+        return True
 
 
 async def _fetch_and_save_manifest(
@@ -112,8 +113,16 @@ async def _fetch_and_save_manifest(
         logger.info("Manifest refreshed from State Manager")
         return True
 
+    except (OSError, ConnectionError, TimeoutError) as e:
+        logger.warning("Failed to refresh manifest from State Manager: %s", e)
+        return False
     except Exception as e:
-        logger.warning(f"Failed to refresh manifest from State Manager: {e}")
+        logger.error(
+            "Unexpected error refreshing manifest from State Manager: %s (%s)",
+            e,
+            type(e).__name__,
+            exc_info=True,
+        )
         return False
 
 

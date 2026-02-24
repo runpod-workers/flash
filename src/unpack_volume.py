@@ -85,8 +85,8 @@ def _should_unpack_from_volume() -> bool:
 
     Detection logic:
     1. Honor explicit disable flag (FLASH_DISABLE_UNPACK)
-    2. Must be in RunPod environment (RUNPOD_POD_ID or RUNPOD_ENDPOINT_ID)
-    3. Must be Flash deployment (any of FLASH_IS_MOTHERSHIP, FLASH_RESOURCE_NAME)
+    2. Must be in RunPod environment (RUNPOD_ENDPOINT_ID)
+    3. Must be Flash deployment (FLASH_ENDPOINT_TYPE or FLASH_RESOURCE_NAME)
 
     Returns:
         bool: True if unpacking should occur, False otherwise
@@ -126,7 +126,6 @@ def maybe_unpack():
         if _UNPACKED:
             return
 
-        _UNPACKED = True
         logger.info("unpacking app from volume")
 
         last_error: Exception | None = None
@@ -139,12 +138,12 @@ def maybe_unpack():
                 last_error = e
                 logger.error(
                     "failed to unpack app from volume (attempt %s/%s): %s",
-                    attempt,
+                    attempt + 1,
                     DEFAULT_TARBALL_UNPACK_ATTEMPTS,
                     e,
                     exc_info=True,
                 )
-                if attempt < DEFAULT_TARBALL_UNPACK_ATTEMPTS:
+                if attempt < DEFAULT_TARBALL_UNPACK_ATTEMPTS - 1:
                     sleep(DEFAULT_TARBALL_UNPACK_INTERVAL)
         raise RuntimeError(
             f"failed to unpack app from volume after retries: {last_error}"

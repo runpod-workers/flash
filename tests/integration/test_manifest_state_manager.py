@@ -127,7 +127,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -160,7 +160,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -196,7 +196,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -232,7 +232,7 @@ class TestRequestScopedManifestRefresh:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -320,7 +320,7 @@ class TestManifestAsSourceOfTruth:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -378,7 +378,7 @@ class TestManifestAsSourceOfTruth:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -421,7 +421,7 @@ class TestErrorHandling:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -456,7 +456,7 @@ class TestErrorHandling:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,
@@ -488,7 +488,7 @@ class TestTTLBasedStaleness:
             "os.environ",
             {
                 "RUNPOD_ENDPOINT_ID": "ep-test-001",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "RUNPOD_API_KEY": "test-api-key",
             },
             clear=True,

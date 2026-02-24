@@ -217,13 +217,13 @@ class TestUnpackAppFromVolume:
 class TestShouldUnpackFromVolume:
     """Test environment variable detection logic."""
 
-    def test_should_unpack_for_flash_mothership(self):
-        """Test unpacking is enabled for Flash Mothership deployment."""
+    def test_should_unpack_for_flash_lb_endpoint(self):
+        """Test unpacking is enabled for Flash LB endpoint deployment."""
         with patch.dict(
             os.environ,
             {
                 "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
             },
             clear=False,
         ):
@@ -252,7 +252,7 @@ class TestShouldUnpackFromVolume:
             clear=False,
         ):
             os.environ.pop("FLASH_DISABLE_UNPACK", None)
-            os.environ.pop("FLASH_IS_MOTHERSHIP", None)
+            os.environ.pop("FLASH_ENDPOINT_TYPE", None)
             os.environ.pop("FLASH_RESOURCE_NAME", None)
             assert _should_unpack_from_volume() is False
 
@@ -270,7 +270,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "1",
             },
         ):
@@ -282,7 +282,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "true",
             },
         ):
@@ -294,7 +294,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "yes",
             },
         ):
@@ -306,7 +306,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_ENDPOINT_ID": "test-endpoint-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "false",
             },
         ):
@@ -318,7 +318,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "True",
             },
         ):
@@ -330,7 +330,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "YES",
             },
         ):
@@ -342,7 +342,7 @@ class TestShouldUnpackFromVolume:
             os.environ,
             {
                 "RUNPOD_POD_ID": "test-pod-id",
-                "FLASH_IS_MOTHERSHIP": "true",
+                "FLASH_ENDPOINT_TYPE": "lb",
                 "FLASH_DISABLE_UNPACK": "Yes",
             },
         ):
