@@ -7,6 +7,63 @@ from remote_executor import RemoteExecutor
 from runpod_flash.protos.remote_execution import FunctionRequest
 
 
+class TestServiceRegistryInit:
+    """Test conditional ServiceRegistry initialization based on manifest existence."""
+
+    @patch("remote_executor.Path")
+    @patch("remote_executor.ServiceRegistry")
+    def test_init_creates_registry_when_manifest_exists(self, mock_registry_cls, mock_path_cls):
+        """ServiceRegistry is initialized when flash_manifest.json exists on disk."""
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_path_cls.return_value = mock_path
+        mock_instance = Mock()
+        mock_registry_cls.return_value = mock_instance
+
+        executor = RemoteExecutor()
+
+        assert executor.service_registry is mock_instance
+        mock_registry_cls.assert_called_once_with(manifest_path=mock_path)
+
+    @patch("remote_executor.Path")
+    @patch("remote_executor.ServiceRegistry")
+    def test_init_skips_registry_when_no_manifest(self, mock_registry_cls, mock_path_cls):
+        """ServiceRegistry is NOT initialized when flash_manifest.json is absent."""
+        mock_path = Mock()
+        mock_path.exists.return_value = False
+        mock_path_cls.return_value = mock_path
+
+        executor = RemoteExecutor()
+
+        assert executor.service_registry is None
+        mock_registry_cls.assert_not_called()
+
+    @patch("remote_executor.Path")
+    @patch("remote_executor.ServiceRegistry")
+    def test_init_handles_registry_exception(self, mock_registry_cls, mock_path_cls):
+        """ServiceRegistry init failure is handled gracefully."""
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_path_cls.return_value = mock_path
+        mock_registry_cls.side_effect = RuntimeError("corrupt manifest")
+
+        executor = RemoteExecutor()
+
+        assert executor.service_registry is None
+
+    @patch("remote_executor.Path")
+    @patch("remote_executor.ServiceRegistry", None)
+    def test_init_handles_missing_service_registry_import(self, mock_path_cls):
+        """Handles case where runpod-flash is not installed (ServiceRegistry is None)."""
+        mock_path = Mock()
+        mock_path.exists.return_value = True
+        mock_path_cls.return_value = mock_path
+
+        executor = RemoteExecutor()
+
+        assert executor.service_registry is None
+
+
 class TestRemoteExecutor:
     """Unit tests for the RemoteExecutor orchestration class."""
 

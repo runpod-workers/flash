@@ -43,17 +43,22 @@ class RemoteExecutor(RemoteExecutorStub):
         self.class_executor = ClassExecutor()
         self.cache_sync = CacheSyncManager()
 
-        # Service discovery for cross-endpoint routing (peer-to-peer model)
+        # Service discovery for cross-endpoint routing (Flash Deployed only).
+        # Only init when manifest exists on disk — Live Serverless workers
+        # never have flash_manifest.json; they use @remote stacking instead.
         self.service_registry: Optional[ServiceRegistry] = None
-        if ServiceRegistry is not None:
+        manifest_path = Path(FLASH_MANIFEST_PATH)
+        if ServiceRegistry is not None and manifest_path.exists():
             try:
-                self.service_registry = ServiceRegistry(manifest_path=Path(FLASH_MANIFEST_PATH))
+                self.service_registry = ServiceRegistry(manifest_path=manifest_path)
                 self.logger.debug("Service registry initialized for cross-endpoint routing")
             except Exception as e:
                 self.logger.debug(f"Failed to initialize service registry: {e}")
                 self.service_registry = None
-        else:
+        elif ServiceRegistry is None:
             self.logger.debug("ServiceRegistry not available (runpod-flash not installed)")
+        else:
+            self.logger.debug("No flash_manifest.json, skipping service registry")
 
     async def ExecuteFunction(self, request: FunctionRequest) -> FunctionResponse:
         """
