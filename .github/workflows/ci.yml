@@ -19,6 +19,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
     strategy:
       matrix:
         python-version: ${{ github.event_name == 'pull_request' && fromJSON('["3.11", "3.12"]') || fromJSON('["3.10", "3.11", "3.12", "3.13", "3.14"]') }}
@@ -48,16 +49,9 @@ jobs:
       - name: Run all tests with coverage
         run: make test-coverage
 
-      - name: Run unit tests separately (main branch only)
-        if: github.ref == 'refs/heads/main'
-        run: make test-unit
-
-      - name: Run integration tests separately (main branch only)
-        if: github.ref == 'refs/heads/main'
-        run: make test-integration
-
   lint:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -80,6 +74,7 @@ jobs:
 
   docker-test:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
     needs: [lint]
     steps:
       - name: Clear Space
@@ -131,6 +126,7 @@ jobs:
 
   docker-test-lb:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
     needs: [lint]
     steps:
       - name: Free Disk Space
@@ -181,6 +177,7 @@ jobs:
 
   docker-test-lb-cpu:
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
     needs: [lint]
     steps:
       - name: Clear Space
@@ -232,14 +229,13 @@ jobs:
     steps:
       - name: Check all jobs succeeded
         run: |
-          if [[ "${{ needs.test.result }}" != "success" ]] || \
-             [[ "${{ needs.lint.result }}" != "success" ]] || \
-             [[ "${{ needs.docker-test.result }}" != "success" ]] || \
-             [[ "${{ needs.docker-test-lb.result }}" != "success" ]] || \
-             [[ "${{ needs.docker-test-lb-cpu.result }}" != "success" ]]; then
-            echo "One or more quality checks failed"
-            exit 1
-          fi
+          results=("${{ needs.test.result }}" "${{ needs.lint.result }}" "${{ needs.docker-test.result }}" "${{ needs.docker-test-lb.result }}" "${{ needs.docker-test-lb-cpu.result }}")
+          for result in "${results[@]}"; do
+            if [[ "$result" != "success" && "$result" != "skipped" ]]; then
+              echo "One or more quality checks failed (got: $result)"
+              exit 1
+            fi
+          done
 
   release:
     runs-on: ubuntu-latest
@@ -256,7 +252,7 @@ jobs:
           app-id: ${{ secrets.RELEASE_APP_ID }}
           private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
 
-      - uses: google-github-actions/release-please-action@v4
+      - uses: googleapis/release-please-action@v4
         id: release
         with:
           token: ${{ steps.app-token.outputs.token }}
