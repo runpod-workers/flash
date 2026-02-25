@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/runpod-workers/flash/compare/v1.0.1...v1.1.0) (2026-02-25)
+
+
+### Features
+
+* fully deployed environment with generated handlers ([#68](https://github.com/runpod-workers/flash/issues/68)) ([59a7fcc](https://github.com/runpod-workers/flash/commit/59a7fcc7bb6ae7b31364ad1a1418d4c85cf8a32a))
+
 ## [1.0.1](https://github.com/runpod-workers/flash/compare/v1.0.0...v1.0.1) (2026-02-10)
 
 
