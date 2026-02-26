@@ -27,8 +27,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
@@ -75,37 +73,12 @@ jobs:
   docker-test:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
-    needs: [lint]
     steps:
-      - name: Clear Space
-        # Note: Manual cleanup sufficient for CPU images (python:3.12-slim base ~150MB)
-        # Only CUDA images need aggressive cleanup due to their ~10-15GB size
-        run: |
-          rm -rf /usr/share/dotnet
-          rm -rf /opt/ghc
-          rm -rf "/usr/local/share/boost"
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-          docker system prune -af
-          df -h
-
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup dependencies
-        run: uv sync
 
       - name: Build CPU Docker image
         uses: docker/build-push-action@v6
@@ -127,37 +100,12 @@ jobs:
   docker-test-lb-cpu:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
-    needs: [lint]
     steps:
-      - name: Clear Space
-        # Note: Manual cleanup sufficient for CPU images (python:3.12-slim base ~150MB)
-        # Only CUDA images need aggressive cleanup due to their ~10-15GB size
-        run: |
-          rm -rf /usr/share/dotnet
-          rm -rf /opt/ghc
-          rm -rf "/usr/local/share/boost"
-          rm -rf "$AGENT_TOOLSDIRECTORY"
-          docker system prune -af
-          df -h
-
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Set up uv
-        uses: astral-sh/setup-uv@v4
-        with:
-          enable-cache: true
-
-      - name: Setup dependencies
-        run: uv sync
 
       - name: Build CPU Load Balancer Docker image
         uses: docker/build-push-action@v6
@@ -170,6 +118,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
+
+      - name: Test LB handler execution in Docker environment
+        run: |
+          echo "Testing LB handler in Docker environment..."
+          docker run --rm flash-lb-cpu:test ./test-lb-handler.sh
 
   docker-validation:
     runs-on: ubuntu-latest
