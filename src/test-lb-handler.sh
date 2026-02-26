@@ -24,14 +24,20 @@ trap cleanup EXIT
 
 # Start FastAPI server in background
 echo "Starting FastAPI server on port $PORT..."
-PYTHONPATH=. uv run python3 -m uvicorn lb_handler:app --host $HOST --port $PORT --log-level error > /tmp/lb_handler.log 2>&1 &
+if [ -f /.dockerenv ]; then
+    # Docker: use system python with pre-installed packages
+    PYTHONPATH=. python3 -m uvicorn lb_handler:app --host $HOST --port $PORT --log-level error > /tmp/lb_handler.log 2>&1 &
+else
+    # Local: use uv run to manage dependencies
+    PYTHONPATH=. uv run python3 -m uvicorn lb_handler:app --host $HOST --port $PORT --log-level error > /tmp/lb_handler.log 2>&1 &
+fi
 SERVER_PID=$!
 
 # Wait for server to be ready
 echo "Waiting for server to be ready..."
 attempt=0
 while [ $attempt -lt $TEST_TIMEOUT ]; do
-    if curl -s -f "http://$HOST:$PORT/health" > /dev/null 2>&1; then
+    if curl -s -f "http://$HOST:$PORT/ping" > /dev/null 2>&1; then
         echo "✓ Server is ready"
         break
     fi
@@ -46,10 +52,10 @@ while [ $attempt -lt $TEST_TIMEOUT ]; do
     fi
 done
 
-# Test /health endpoint
+# Test /ping endpoint
 echo ""
-echo "Testing /health endpoint..."
-health_response=$(curl -s "http://$HOST:$PORT/health")
+echo "Testing /ping endpoint..."
+health_response=$(curl -s "http://$HOST:$PORT/ping")
 echo "Response: $health_response"
 
 # Run /execute tests

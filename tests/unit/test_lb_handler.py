@@ -14,10 +14,14 @@ from fastapi import FastAPI
 
 
 # Mock heavy dependencies before importing lb_handler to prevent side effects
+_mock_version = MagicMock()
+_mock_version.format_version_banner = MagicMock(return_value="Starting Flash Worker vtest")
+
 _MOCK_MODULES = {
     "logger": MagicMock(),
     "unpack_volume": MagicMock(),
     "remote_executor": MagicMock(),
+    "version": _mock_version,
     "runpod_flash": MagicMock(),
     "runpod_flash.protos": MagicMock(),
     "runpod_flash.protos.remote_execution": MagicMock(),

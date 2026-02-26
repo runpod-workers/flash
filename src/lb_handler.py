@@ -29,6 +29,7 @@ from fastapi import FastAPI
 
 from logger import setup_logging
 from unpack_volume import maybe_unpack
+from version import format_version_banner
 
 # Initialize logging configuration
 setup_logging()
@@ -37,6 +38,9 @@ logger = logging.getLogger(__name__)
 # Unpack Flash deployment artifacts if running in Flash mode
 # This is a no-op for Live Serverless and local development
 maybe_unpack()
+
+# Log after unpack so bundled runpod_flash is on sys.path
+logger.info(format_version_banner())
 
 # Import from bundled /app/runpod_flash (no system package)
 # These imports must happen AFTER maybe_unpack() so /app is in sys.path
