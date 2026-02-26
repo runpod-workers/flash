@@ -1,9 +1,18 @@
 """Version utilities for flash-worker boot logging."""
 
+import re
 from importlib.metadata import PackageNotFoundError, version
+from pathlib import Path
 
-# Worker version — keep in sync with pyproject.toml
-__version__ = "1.1.0"
+
+def _read_pyproject_version(pyproject_path: Path) -> str | None:
+    """Read version from a pyproject.toml file via simple regex."""
+    try:
+        text = pyproject_path.read_text()
+        match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
+        return match.group(1) if match else None
+    except FileNotFoundError:
+        return None
 
 
 def _get_version(package_name: str) -> str:
@@ -14,10 +23,13 @@ def _get_version(package_name: str) -> str:
 
 
 def get_worker_version() -> str:
-    return __version__
+    """Read worker version from pyproject.toml (co-located in Docker image)."""
+    ver = _read_pyproject_version(Path(__file__).parent / "pyproject.toml")
+    return ver or _get_version("worker-flash")
 
 
 def get_flash_version() -> str:
+    """Read bundled flash version, falling back to pip metadata."""
     try:
         from runpod_flash import __version__ as flash_ver
 
