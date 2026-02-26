@@ -24,7 +24,13 @@ trap cleanup EXIT
 
 # Start FastAPI server in background
 echo "Starting FastAPI server on port $PORT..."
-PYTHONPATH=. uv run python3 -m uvicorn lb_handler:app --host $HOST --port $PORT --log-level error > /tmp/lb_handler.log 2>&1 &
+if [ -f /.dockerenv ]; then
+    # Docker: use system python with pre-installed packages
+    PYTHONPATH=. python3 -m uvicorn lb_handler:app --host $HOST --port $PORT --log-level error > /tmp/lb_handler.log 2>&1 &
+else
+    # Local: use uv run to manage dependencies
+    PYTHONPATH=. uv run python3 -m uvicorn lb_handler:app --host $HOST --port $PORT --log-level error > /tmp/lb_handler.log 2>&1 &
+fi
 SERVER_PID=$!
 
 # Wait for server to be ready
