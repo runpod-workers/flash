@@ -6,15 +6,19 @@ from typing import Any, Dict, Optional
 
 from logger import setup_logging
 from unpack_volume import maybe_unpack
+from version import format_version_banner
 
 # Initialize logging configuration
 setup_logging()
+
+logger = logging.getLogger(__name__)
 
 # Unpack Flash deployment artifacts if running in Flash mode
 # This is a no-op for Live Serverless and local development
 maybe_unpack()
 
-logger = logging.getLogger(__name__)
+# Log after unpack so bundled runpod_flash is on sys.path
+logger.info(format_version_banner())
 
 
 def _load_generated_handler() -> Optional[Any]:
@@ -62,7 +66,7 @@ def _load_generated_handler() -> Optional[Any]:
     except ImportError as e:
         logger.warning(
             "Generated handler %s failed to import (missing dependency: %s). "
-            "Deploy with --use-local-flash to include latest runpod_flash. "
+            "Redeploy to include latest runpod_flash. "
             "Falling back to FunctionRequest handler.",
             handler_file,
             e,
