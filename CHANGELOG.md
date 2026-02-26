@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.1](https://github.com/runpod-workers/flash/compare/v1.1.0...v1.1.1) (2026-02-26)
+
+
+### Bug Fixes
+
+* add runtime version banner, log after unpack for accuracy ([#71](https://github.com/runpod-workers/flash/issues/71)) ([74ea9ba](https://github.com/runpod-workers/flash/commit/74ea9ba7d0f2e4e2d97ced1a34d1c0b53cfbbcbc))
+* **ci:** eliminate redundant CI runs and migrate release-please ([#70](https://github.com/runpod-workers/flash/issues/70)) ([002b787](https://github.com/runpod-workers/flash/commit/002b78790787ca56ff3fe127f21f714dbc43b7b1))
+
 ## [1.1.0](https://github.com/runpod-workers/flash/compare/v1.0.1...v1.1.0) (2026-02-25)
 
 

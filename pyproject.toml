@@ -1,6 +1,6 @@
 [project]
 name = "worker-flash"
-version = "1.1.0"
+version = "1.1.1"
 description = "Dynamic GPU provisioning for ML workloads with transparent execution"
 readme = "README.md"
 requires-python = ">=3.10,<3.15"
