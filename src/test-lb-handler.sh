@@ -37,7 +37,7 @@ SERVER_PID=$!
 echo "Waiting for server to be ready..."
 attempt=0
 while [ $attempt -lt $TEST_TIMEOUT ]; do
-    if curl -s -f "http://$HOST:$PORT/health" > /dev/null 2>&1; then
+    if curl -s -f "http://$HOST:$PORT/ping" > /dev/null 2>&1; then
         echo "✓ Server is ready"
         break
     fi
@@ -52,10 +52,10 @@ while [ $attempt -lt $TEST_TIMEOUT ]; do
     fi
 done
 
-# Test /health endpoint
+# Test /ping endpoint
 echo ""
-echo "Testing /health endpoint..."
-health_response=$(curl -s "http://$HOST:$PORT/health")
+echo "Testing /ping endpoint..."
+health_response=$(curl -s "http://$HOST:$PORT/ping")
 echo "Response: $health_response"
 
 # Run /execute tests
