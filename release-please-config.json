@@ -14,7 +14,7 @@
         {"type": "chore", "section": "Miscellaneous", "hidden": true}
       ],
       "extra-files": [
-        "src/__init__.py"
+        "src/version.py"
       ]
     }
   },

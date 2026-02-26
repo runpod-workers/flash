@@ -4,30 +4,13 @@ from importlib.metadata import PackageNotFoundError
 from unittest.mock import patch
 
 from version import (
+    __version__,
     _get_version,
-    _read_pyproject_version,
     format_version_banner,
     get_flash_version,
     get_runpod_version,
     get_worker_version,
 )
-
-
-class TestReadPyprojectVersion:
-    """Tests for reading version from pyproject.toml."""
-
-    def test_reads_version_from_pyproject(self, tmp_path):
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[project]\nname = "test"\nversion = "2.3.4"\n')
-        assert _read_pyproject_version(pyproject) == "2.3.4"
-
-    def test_returns_none_for_missing_file(self, tmp_path):
-        assert _read_pyproject_version(tmp_path / "nonexistent.toml") is None
-
-    def test_returns_none_for_missing_version(self, tmp_path):
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[project]\nname = "test"\n')
-        assert _read_pyproject_version(pyproject) is None
 
 
 class TestGetVersion:
@@ -46,24 +29,8 @@ class TestGetVersion:
 class TestVersionGetters:
     """Tests for individual version getter functions."""
 
-    def test_get_worker_version_reads_pyproject(self, tmp_path):
-        pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text('[project]\nname = "worker-flash"\nversion = "1.1.0"\n')
-        with patch("version.Path") as mock_path:
-            mock_path.return_value.parent.__truediv__ = lambda self, x: pyproject
-            # Simpler: just patch _read_pyproject_version
-        # Direct test via _read_pyproject_version
-        assert _read_pyproject_version(pyproject) == "1.1.0"
-
-    def test_get_worker_version_falls_back_to_metadata(self):
-        with patch("version._read_pyproject_version", return_value=None):
-            with patch("version._get_version", return_value="1.0.0") as mock_get:
-                assert get_worker_version() == "1.0.0"
-                mock_get.assert_called_once_with("worker-flash")
-
-    def test_get_worker_version_prefers_pyproject(self):
-        with patch("version._read_pyproject_version", return_value="1.1.0"):
-            assert get_worker_version() == "1.1.0"
+    def test_get_worker_version_returns_module_version(self):
+        assert get_worker_version() == __version__
 
     def test_get_flash_version_from_bundled_package(self):
         """Reads __version__ from bundled runpod_flash when available."""

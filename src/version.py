@@ -1,18 +1,8 @@
 """Version utilities for flash-worker boot logging."""
 
-import re
 from importlib.metadata import PackageNotFoundError, version
-from pathlib import Path
 
-
-def _read_pyproject_version(pyproject_path: Path) -> str | None:
-    """Read version from a pyproject.toml file via simple regex."""
-    try:
-        text = pyproject_path.read_text()
-        match = re.search(r'^version\s*=\s*"([^"]+)"', text, re.MULTILINE)
-        return match.group(1) if match else None
-    except FileNotFoundError:
-        return None
+__version__ = "1.1.0"  # x-release-please-version
 
 
 def _get_version(package_name: str) -> str:
@@ -23,9 +13,7 @@ def _get_version(package_name: str) -> str:
 
 
 def get_worker_version() -> str:
-    """Read worker version from pyproject.toml (co-located in Docker image)."""
-    ver = _read_pyproject_version(Path(__file__).parent / "pyproject.toml")
-    return ver or _get_version("worker-flash")
+    return __version__
 
 
 def get_flash_version() -> str:
