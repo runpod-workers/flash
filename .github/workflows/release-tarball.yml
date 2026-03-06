@@ -1,0 +1,60 @@
+name: Release Tarball
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (build but don't upload)"
+        required: false
+        default: "false"
+        type: boolean
+
+# Triggered by release job in ci.yml via workflow_call
+# or manually via workflow_dispatch
+  workflow_call:
+    inputs:
+      tag_name:
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-tarball:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Build tarball
+        env:
+          PYTHON_VERSION: "3.11"
+        run: bash scripts/build-tarball.sh
+
+      - name: Test tarball in bare ubuntu container
+        run: |
+          TARBALL=$(ls dist/flash-worker-v*-py3.11-linux-x86_64.tar.gz)
+          docker run --rm -v "$(pwd)/dist:/dist" ubuntu:22.04 \
+            bash -c "tar xzf /dist/$(basename $TARBALL) -C /opt && /opt/flash-worker/bootstrap.sh --test"
+
+      - name: Upload tarball to GitHub Release
+        if: inputs.dry_run != 'true' && inputs.tag_name != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TARBALL=$(ls dist/flash-worker-v*-py3.11-linux-x86_64.tar.gz)
+          gh release upload "${{ inputs.tag_name }}" "$TARBALL" --clobber
+
+      - name: Upload tarball as artifact (for dry runs)
+        if: inputs.dry_run == 'true' || inputs.tag_name == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: flash-worker-tarball
+          path: dist/flash-worker-v*-py3.11-linux-x86_64.tar.gz
+          retention-days: 7

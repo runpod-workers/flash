@@ -5,7 +5,7 @@ import platform
 from typing import List
 
 from runpod_flash.protos.remote_execution import FunctionResponse
-from constants import LARGE_SYSTEM_PACKAGES, NAMESPACE
+from constants import FLASH_WORKER_INSTALL_DIR_ENV, LARGE_SYSTEM_PACKAGES, NAMESPACE
 from subprocess_utils import run_logged_subprocess
 
 
@@ -16,6 +16,7 @@ class DependencyInstaller:
         self.logger = logging.getLogger(f"{NAMESPACE}.{__name__.split('.')[-1]}")
         self._nala_available = None  # Cache nala availability check
         self._is_docker = None  # Cache Docker environment detection
+        self._fw_install_dir = os.environ.get(FLASH_WORKER_INSTALL_DIR_ENV)
 
     def install_dependencies(
         self, packages: List[str], accelerate_downloads: bool = True
@@ -35,7 +36,12 @@ class DependencyInstaller:
 
         self.logger.info(f"Installing Python dependencies: {packages}")
 
-        if self._is_docker_environment():
+        if self._fw_install_dir:
+            # Tarball mode: install user deps into the flash-worker venv using bundled uv
+            uv_bin = os.path.join(self._fw_install_dir, "uv")
+            venv_python = os.path.join(self._fw_install_dir, "venv", "bin", "python")
+            command = [uv_bin, "pip", "install", "--python", venv_python] + packages
+        elif self._is_docker_environment():
             if accelerate_downloads:
                 # Install into the running Python interpreter's environment.
                 # Using --python sys.executable (not --system) ensures packages go into

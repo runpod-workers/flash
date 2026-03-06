@@ -191,6 +191,43 @@ class TestSystemPackageAcceleration:
         assert "Installed with nala" not in result.stdout
 
 
+class TestTarballMode:
+    """Test dependency installation in tarball (process injection) mode."""
+
+    @patch.dict("os.environ", {"FLASH_WORKER_INSTALL_DIR": "/opt/flash-worker"})
+    def test_tarball_mode_uses_bundled_uv(self):
+        """Test tarball mode uses the bundled uv and venv python."""
+        installer = DependencyInstaller()
+        assert installer._fw_install_dir == "/opt/flash-worker"
+
+    @patch.dict("os.environ", {"FLASH_WORKER_INSTALL_DIR": "/opt/flash-worker"})
+    @patch("dependency_installer.run_logged_subprocess")
+    def test_tarball_mode_install_command(self, mock_subprocess):
+        """Test tarball mode generates correct install command."""
+        mock_subprocess.return_value = FunctionResponse(success=True, stdout="Installed")
+        installer = DependencyInstaller()
+        installer.install_dependencies(["numpy"])
+
+        call_args = mock_subprocess.call_args
+        command = call_args.kwargs.get("command") or call_args[1].get("command") or call_args[0][0]
+        assert command[0] == "/opt/flash-worker/uv"
+        assert "pip" in command
+        assert "install" in command
+        assert "--python" in command
+        assert "/opt/flash-worker/venv/bin/python" in command
+        assert "numpy" in command
+
+    @patch.dict("os.environ", {}, clear=False)
+    def test_non_tarball_mode_no_fw_dir(self):
+        """Test non-tarball mode has no _fw_install_dir."""
+        # Remove the env var if set
+        import os
+
+        os.environ.pop("FLASH_WORKER_INSTALL_DIR", None)
+        installer = DependencyInstaller()
+        assert installer._fw_install_dir is None
+
+
 class TestPythonDependencies:
     """Test Python dependency installation."""
 

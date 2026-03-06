@@ -59,3 +59,7 @@ When a deployed handler fails to import due to a missing package, the worker
 attempts to install it and retry. This caps the retry loop to prevent unbounded
 installs (e.g. a package with many missing transitive deps).
 """
+
+# Process Injection (Tarball Mode)
+FLASH_WORKER_INSTALL_DIR_ENV = "FLASH_WORKER_INSTALL_DIR"
+"""Env var set by bootstrap.sh to signal tarball mode. Value is the extraction directory."""

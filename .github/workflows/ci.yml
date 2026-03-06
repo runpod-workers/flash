@@ -216,6 +216,53 @@ jobs:
             PYTHON_VERSION=${{ matrix.python-version }}
           cache-from: type=gha,scope=lb-test-py${{ matrix.python-version }}
           cache-to: type=gha,mode=max,scope=lb-test-py${{ matrix.python-version }}
+  tarball:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Build tarball
+        env:
+          PYTHON_VERSION: "3.11"
+        run: bash scripts/build-tarball.sh
+
+      - name: Test tarball in bare ubuntu container
+        run: |
+          TARBALL=$(ls dist/flash-worker-v*-py3.11-linux-x86_64.tar.gz)
+          docker run --rm -v "$(pwd)/dist:/dist" ubuntu:22.04 \
+            bash -c "tar xzf /dist/$(basename $TARBALL) -C /opt && /opt/flash-worker/bootstrap.sh --test"
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flash-worker-tarball
+          path: dist/flash-worker-v*-py3.11-linux-x86_64.tar.gz
+          retention-days: 30
+          overwrite: true
+
+      - name: Post artifact link on PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TARBALL=$(basename dist/flash-worker-v*-py3.11-linux-x86_64.tar.gz)
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          BODY="**Tarball artifact:** [\`${TARBALL}\`](${RUN_URL}#artifacts)
+
+          To test: \`FLASH_WORKER_TARBALL_URL=<download-url> flash deploy\`"
+
+          # Delete previous tarball comments to keep PR clean
+          gh api "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq '.[] | select(.body | contains("Tarball artifact:")) | .id' | \
+            xargs -I{} gh api -X DELETE "repos/${{ github.repository }}/issues/comments/{}" 2>/dev/null || true
+
+          gh pr comment "${{ github.event.pull_request.number }}" --body "$BODY"
 
   docker-validation:
     runs-on: ubuntu-latest
@@ -333,6 +380,13 @@ jobs:
             PYTHON_VERSION=${{ matrix.python-version }}
           cache-from: type=gha,scope=gpu-py${{ matrix.python-version }}
           cache-to: type=gha,mode=max,scope=gpu-py${{ matrix.python-version }}
+
+  tarball-release:
+    needs: [release]
+    if: needs.release.outputs.release_created
+    uses: ./.github/workflows/release-tarball.yml
+    with:
+      tag_name: ${{ needs.release.outputs.tag_name }}
 
   docker-prod-cpu:
     runs-on: ubuntu-latest

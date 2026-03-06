@@ -2,6 +2,9 @@ IMAGE = runpod/flash
 TAG = $(or $(FLASH_IMAGE_TAG),local)
 FULL_IMAGE = $(IMAGE):$(TAG)
 FULL_IMAGE_CPU = $(IMAGE)-cpu:$(TAG)
+VERSION = $(shell python3 -c "import re; print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('src/version.py').read()).group(1))")
+# Must match base image Python: pytorch:2.9.1-cuda12.8-cudnn9-runtime and python:3.11-slim
+TARBALL_PYTHON_VERSION ?= 3.11
 
 # Detect host platform for local builds
 ARCH := $(shell uname -m)
@@ -55,6 +58,27 @@ clean: # Remove build artifacts and cache files
 	find . -type d -name __pycache__ -exec rm -rf {} +
 	find . -type f -name "*.pyc" -delete
 	find . -type f -name "*.pkl" -delete
+
+# Tarball targets (process-injectable runtime)
+tarball: # Build self-contained runtime tarball (runs in Docker, linux/amd64)
+	docker run --rm --platform linux/amd64 \
+		-e PYTHON_VERSION=$(TARBALL_PYTHON_VERSION) \
+		-e UV_CACHE_DIR=/workspace/dist/.uv-cache \
+		-v $(PWD):/workspace -w /workspace \
+		python:3.11-slim \
+		bash -c 'apt-get update -qq && apt-get install -y -qq curl > /dev/null 2>&1 && pip install uv -q && bash scripts/build-tarball.sh'
+
+tarball-test: tarball # Test tarball in bare ubuntu container
+	docker run --rm --platform linux/amd64 -v $(PWD)/dist:/dist ubuntu:22.04 \
+		bash -c 'tar xzf /dist/flash-worker-v$(VERSION)-py$(TARBALL_PYTHON_VERSION)-linux-x86_64.tar.gz -C /opt && /opt/flash-worker/bootstrap.sh --test'
+
+tarball-test-local: # Test tarball injection with mounted file (no rebuild)
+	docker run --rm --platform linux/amd64 \
+		-v $(PWD)/dist/flash-worker-v$(VERSION)-py$(TARBALL_PYTHON_VERSION)-linux-x86_64.tar.gz:/tmp/flash-worker.tar.gz \
+		ubuntu:22.04 \
+		bash -c 'set -e; FW_DIR=/opt/flash-worker; mkdir -p $$FW_DIR; \
+			tar xzf /tmp/flash-worker.tar.gz -C $$FW_DIR --strip-components=1; \
+			$$FW_DIR/bootstrap.sh --test'
 
 setup: dev # Initialize project and sync dependencies
 	@echo "Setup complete. Development environment ready."
