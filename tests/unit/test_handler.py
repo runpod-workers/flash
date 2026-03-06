@@ -1,11 +1,20 @@
 """Tests for the RunPod handler function."""
 
+import os
+import sys
+
 import pytest
 import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
-from handler import handler, _load_generated_handler
-from runpod_flash.protos.remote_execution import FunctionResponse
+
+# Clear deployed-mode env var before importing handler to prevent module-level
+# _load_generated_handler() from raising when run outside a Docker container.
+os.environ.pop("FLASH_RESOURCE_NAME", None)
+sys.modules.pop("handler", None)
+
+from handler import handler, _load_generated_handler  # noqa: E402
+from runpod_flash.protos.remote_execution import FunctionResponse  # noqa: E402
 
 
 class TestHandler:

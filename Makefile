@@ -150,6 +150,7 @@ _build-gpu-versioned:
 		case "$$1" in \
 			3.11) echo "$(PYTORCH_BASE_3.11)";; \
 			3.12) echo "$(PYTORCH_BASE_3.12)";; \
+			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
 		esac; \
 	}; \
 	for pyver in $(GPU_PYTHON_VERSIONS); do \
@@ -181,6 +182,7 @@ _build-lb-versioned:
 		case "$$1" in \
 			3.11) echo "$(PYTORCH_BASE_3.11)";; \
 			3.12) echo "$(PYTORCH_BASE_3.12)";; \
+			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
 		esac; \
 	}; \
 	for pyver in $(GPU_PYTHON_VERSIONS); do \
@@ -219,6 +221,7 @@ build-wip-versioned: setup # Build and push all versioned images (multi-platform
 		case "$$1" in \
 			3.11) echo "$(PYTORCH_BASE_3.11)";; \
 			3.12) echo "$(PYTORCH_BASE_3.12)";; \
+			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
 		esac; \
 	}; \
 	for pyver in $(GPU_PYTHON_VERSIONS); do \
@@ -252,6 +255,7 @@ build-wip-versioned: setup # Build and push all versioned images (multi-platform
 		case "$$1" in \
 			3.11) echo "$(PYTORCH_BASE_3.11)";; \
 			3.12) echo "$(PYTORCH_BASE_3.12)";; \
+			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
 		esac; \
 	}; \
 	for pyver in $(GPU_PYTHON_VERSIONS); do \
