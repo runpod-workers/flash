@@ -1,5 +1,6 @@
 """Tests for version utilities."""
 
+import platform
 from importlib.metadata import PackageNotFoundError
 from unittest.mock import patch
 
@@ -59,11 +60,19 @@ class TestFormatVersionBanner:
     @patch("version.get_worker_version", return_value="2.0.0")
     def test_format_version_banner(self, mock_worker, mock_flash, mock_runpod):
         result = format_version_banner()
-        assert result == "Starting Flash Worker 2.0.0 | runpod-flash 1.5.0 | runpod 0.9.0"
+        py = platform.python_version()
+        assert (
+            result
+            == f"Starting Flash Worker 2.0.0 | Python {py} | runpod-flash 1.5.0 | runpod 0.9.0"
+        )
 
     @patch("version.get_runpod_version", return_value="unknown")
     @patch("version.get_flash_version", return_value="unknown")
     @patch("version.get_worker_version", return_value="unknown")
     def test_banner_handles_unknown_versions(self, mock_worker, mock_flash, mock_runpod):
         result = format_version_banner()
-        assert result == "Starting Flash Worker unknown | runpod-flash unknown | runpod unknown"
+        py = platform.python_version()
+        assert (
+            result
+            == f"Starting Flash Worker unknown | Python {py} | runpod-flash unknown | runpod unknown"
+        )

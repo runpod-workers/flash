@@ -1,5 +1,6 @@
 """Version utilities for flash-worker boot logging."""
 
+import platform
 from importlib.metadata import PackageNotFoundError, version
 
 __version__ = "1.1.1"  # x-release-please-version
@@ -33,6 +34,7 @@ def get_runpod_version() -> str:
 def format_version_banner() -> str:
     return (
         f"Starting Flash Worker {get_worker_version()} | "
+        f"Python {platform.python_version()} | "
         f"runpod-flash {get_flash_version()} | "
         f"runpod {get_runpod_version()}"
     )
