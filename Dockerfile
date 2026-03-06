@@ -1,5 +1,6 @@
-FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
-# Python 3.12 included in this PyTorch image
+ARG PYTHON_VERSION=3.11
+ARG PYTORCH_BASE=pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
+FROM ${PYTORCH_BASE}
 
 WORKDIR /app
 
