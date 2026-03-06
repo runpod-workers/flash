@@ -2,6 +2,10 @@ ARG PYTHON_VERSION=3.11
 ARG PYTORCH_BASE=pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
 FROM ${PYTORCH_BASE}
 
+# Validate base image Python matches requested version
+ARG PYTHON_VERSION
+RUN python -c "import sys; expected='$PYTHON_VERSION'; actual='.'.join(map(str,sys.version_info[:2])); assert actual==expected, f'Python mismatch: expected {expected}, got {actual}'"
+
 WORKDIR /app
 
 # Prevent interactive prompts during package installation

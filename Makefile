@@ -144,7 +144,8 @@ build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
 # CPU images: Python 3.10, 3.11, 3.12 (python:X.Y-slim)
 # Tag format: py${VERSION}-${TAG} (e.g., runpod/flash:py3.11-local)
 
-build-gpu-versioned: setup # Build GPU images for all GPU Python versions
+build-gpu-versioned: setup _build-gpu-versioned # Build GPU images for all GPU Python versions
+_build-gpu-versioned:
 	@pytorch_base() { \
 		case "$$1" in \
 			3.11) echo "$(PYTORCH_BASE_3.11)";; \
@@ -162,7 +163,8 @@ build-gpu-versioned: setup # Build GPU images for all GPU Python versions
 			. --load; \
 	done
 
-build-cpu-versioned: setup # Build CPU images for all CPU Python versions
+build-cpu-versioned: setup _build-cpu-versioned # Build CPU images for all CPU Python versions
+_build-cpu-versioned:
 	@for pyver in $(CPU_PYTHON_VERSIONS); do \
 		echo "Building CPU image for Python $$pyver..."; \
 		docker buildx build \
@@ -173,7 +175,8 @@ build-cpu-versioned: setup # Build CPU images for all CPU Python versions
 			. --load; \
 	done
 
-build-lb-versioned: setup # Build GPU-LB images for all GPU Python versions
+build-lb-versioned: setup _build-lb-versioned # Build GPU-LB images for all GPU Python versions
+_build-lb-versioned:
 	@pytorch_base() { \
 		case "$$1" in \
 			3.11) echo "$(PYTORCH_BASE_3.11)";; \
@@ -192,7 +195,8 @@ build-lb-versioned: setup # Build GPU-LB images for all GPU Python versions
 			. --load; \
 	done
 
-build-lb-cpu-versioned: setup # Build CPU-LB images for all CPU Python versions
+build-lb-cpu-versioned: setup _build-lb-cpu-versioned # Build CPU-LB images for all CPU Python versions
+_build-lb-cpu-versioned:
 	@for pyver in $(CPU_PYTHON_VERSIONS); do \
 		echo "Building CPU-LB image for Python $$pyver..."; \
 		docker buildx build \
@@ -203,12 +207,7 @@ build-lb-cpu-versioned: setup # Build CPU-LB images for all CPU Python versions
 			. --load; \
 	done
 
-build-all-versioned: # Build all 10 versioned images (GPU+CPU, QB+LB)
-	@echo "Building all versioned images (10 total)..."
-	$(MAKE) build-gpu-versioned
-	$(MAKE) build-cpu-versioned
-	$(MAKE) build-lb-versioned
-	$(MAKE) build-lb-cpu-versioned
+build-all-versioned: setup _build-gpu-versioned _build-cpu-versioned _build-lb-versioned _build-lb-cpu-versioned # Build all 10 versioned images (GPU+CPU, QB+LB)
 	@echo "All 10 versioned images built."
 
 # Versioned WIP Push Targets (multi-platform, requires Docker Hub push)
@@ -290,21 +289,26 @@ build-wip-versioned: setup # Build and push all versioned images (multi-platform
 smoketest-versioned: build-all-versioned # Verify Python version in each versioned image
 	@echo "Running Python version checks across all versioned images..."
 	@fail=0; \
+	check_version() { \
+		label="$$1"; image="$$2"; pyver="$$3"; \
+		echo -n "$$label py$$pyver: "; \
+		out=$$(docker run --rm $$image python --version 2>&1) || { echo "docker run failed"; fail=1; return; }; \
+		case "$$out" in \
+			Python\ $$pyver*) echo "$$out" ;; \
+			*) echo "Version mismatch (expected $$pyver): $$out"; fail=1 ;; \
+		esac; \
+	}; \
 	for pyver in $(GPU_PYTHON_VERSIONS); do \
-		echo -n "GPU QB py$$pyver: "; \
-		docker run --rm $(IMAGE):py$$pyver-$(TAG) python --version || fail=1; \
+		check_version "GPU QB" "$(IMAGE):py$$pyver-$(TAG)" "$$pyver"; \
 	done; \
 	for pyver in $(CPU_PYTHON_VERSIONS); do \
-		echo -n "CPU QB py$$pyver: "; \
-		docker run --rm $(IMAGE)-cpu:py$$pyver-$(TAG) python --version || fail=1; \
+		check_version "CPU QB" "$(IMAGE)-cpu:py$$pyver-$(TAG)" "$$pyver"; \
 	done; \
 	for pyver in $(GPU_PYTHON_VERSIONS); do \
-		echo -n "GPU LB py$$pyver: "; \
-		docker run --rm $(IMAGE)-lb:py$$pyver-$(TAG) python --version || fail=1; \
+		check_version "GPU LB" "$(IMAGE)-lb:py$$pyver-$(TAG)" "$$pyver"; \
 	done; \
 	for pyver in $(CPU_PYTHON_VERSIONS); do \
-		echo -n "CPU LB py$$pyver: "; \
-		docker run --rm $(IMAGE)-lb-cpu:py$$pyver-$(TAG) python --version || fail=1; \
+		check_version "CPU LB" "$(IMAGE)-lb-cpu:py$$pyver-$(TAG)" "$$pyver"; \
 	done; \
 	if [ $$fail -ne 0 ]; then echo "FAIL: Some images failed version check"; exit 1; fi; \
 	echo "All 10 images passed Python version check."
