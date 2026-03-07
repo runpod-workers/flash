@@ -88,6 +88,8 @@ jobs:
           platforms: linux/amd64
           push: false
           tags: flash-cpu:test
+          build-args: |
+            PYTHON_VERSION=3.11
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
@@ -115,6 +117,8 @@ jobs:
           platforms: linux/amd64
           push: false
           tags: flash-lb-cpu:test
+          build-args: |
+            PYTHON_VERSION=3.11
           cache-from: type=gha
           cache-to: type=gha,mode=max
           load: true
@@ -163,6 +167,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [release]
     if: needs.release.outputs.release_created
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - python-version: "3.10"
+            is-default: false
+          - python-version: "3.11"
+            is-default: true
+          - python-version: "3.12"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
@@ -188,14 +202,18 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract GPU metadata
-        id: meta-gpu
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Build versioned tags
+        id: tags
+        run: |
+          VERSION="${{ needs.release.outputs.tag_name }}"
+          VERSION="${VERSION#v}"
+          PYVER="${{ matrix.python-version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          TAGS="${IMAGE}:py${PYVER}-${VERSION},${IMAGE}:py${PYVER}-latest"
+          if [ "${{ matrix.is-default }}" = "true" ]; then
+            TAGS="${TAGS},${IMAGE}:${VERSION},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
@@ -210,24 +228,32 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta-gpu.outputs.tags }}
-          labels: ${{ steps.meta-gpu.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
+          cache-from: type=gha,scope=gpu-py${{ matrix.python-version }}
+          cache-to: type=gha,mode=max,scope=gpu-py${{ matrix.python-version }}
 
   docker-prod-cpu:
     runs-on: ubuntu-latest
     needs: [release]
     if: needs.release.outputs.release_created
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - python-version: "3.10"
+            is-default: false
+          - python-version: "3.11"
+            is-default: true
+          - python-version: "3.12"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
-          rm -rf /usr/share/dotnet
-          rm -rf /opt/ghc
-          rm -rf "/usr/local/share/boost"
-          rm -rf "$AGENT_TOOLSDIRECTORY"
+          rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
           docker system prune -af
           df -h
 
@@ -249,14 +275,18 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract CPU metadata
-        id: meta-cpu
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Build versioned tags
+        id: tags
+        run: |
+          VERSION="${{ needs.release.outputs.tag_name }}"
+          VERSION="${VERSION#v}"
+          PYVER="${{ matrix.python-version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cpu"
+          TAGS="${IMAGE}:py${PYVER}-${VERSION},${IMAGE}:py${PYVER}-latest"
+          if [ "${{ matrix.is-default }}" = "true" ]; then
+            TAGS="${TAGS},${IMAGE}:${VERSION},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
@@ -273,15 +303,26 @@ jobs:
           file: ./Dockerfile-cpu
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta-cpu.outputs.tags }}
-          labels: ${{ steps.meta-cpu.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
+          cache-from: type=gha,scope=cpu-py${{ matrix.python-version }}
+          cache-to: type=gha,mode=max,scope=cpu-py${{ matrix.python-version }}
 
   docker-prod-lb:
     runs-on: ubuntu-latest
     needs: [release]
     if: needs.release.outputs.release_created
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - python-version: "3.10"
+            is-default: false
+          - python-version: "3.11"
+            is-default: true
+          - python-version: "3.12"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
@@ -307,14 +348,18 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract Load Balancer metadata
-        id: meta-lb
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Build versioned tags
+        id: tags
+        run: |
+          VERSION="${{ needs.release.outputs.tag_name }}"
+          VERSION="${VERSION#v}"
+          PYVER="${{ matrix.python-version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb"
+          TAGS="${IMAGE}:py${PYVER}-${VERSION},${IMAGE}:py${PYVER}-latest"
+          if [ "${{ matrix.is-default }}" = "true" ]; then
+            TAGS="${TAGS},${IMAGE}:${VERSION},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
@@ -329,17 +374,28 @@ jobs:
         with:
           context: .
           file: ./Dockerfile-lb
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta-lb.outputs.tags }}
-          labels: ${{ steps.meta-lb.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
+          cache-from: type=gha,scope=lb-py${{ matrix.python-version }}
+          cache-to: type=gha,mode=max,scope=lb-py${{ matrix.python-version }}
 
   docker-prod-lb-cpu:
     runs-on: ubuntu-latest
     needs: [release]
     if: needs.release.outputs.release_created
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+        include:
+          - python-version: "3.10"
+            is-default: false
+          - python-version: "3.11"
+            is-default: true
+          - python-version: "3.12"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
@@ -365,14 +421,18 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Extract CPU Load Balancer metadata
-        id: meta-lb-cpu
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu
-          tags: |
-            type=semver,pattern={{version}},value=${{ needs.release.outputs.tag_name }}
-            type=raw,value=latest,enable={{is_default_branch}}
+      - name: Build versioned tags
+        id: tags
+        run: |
+          VERSION="${{ needs.release.outputs.tag_name }}"
+          VERSION="${VERSION#v}"
+          PYVER="${{ matrix.python-version }}"
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-lb-cpu"
+          TAGS="${IMAGE}:py${PYVER}-${VERSION},${IMAGE}:py${PYVER}-latest"
+          if [ "${{ matrix.is-default }}" = "true" ]; then
+            TAGS="${TAGS},${IMAGE}:${VERSION},${IMAGE}:latest"
+          fi
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v4
@@ -389,7 +449,8 @@ jobs:
           file: ./Dockerfile-lb-cpu
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.meta-lb-cpu.outputs.tags }}
-          labels: ${{ steps.meta-lb-cpu.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.tags.outputs.tags }}
+          build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
+          cache-from: type=gha,scope=lb-cpu-py${{ matrix.python-version }}
+          cache-to: type=gha,mode=max,scope=lb-cpu-py${{ matrix.python-version }}

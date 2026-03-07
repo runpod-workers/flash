@@ -18,15 +18,14 @@ endif
 # WIP testing configuration (multi-platform builds)
 WIP_TAG ?= wip
 MULTI_PLATFORM := linux/amd64,linux/arm64
+# GPU base image (runpod/pytorch) is amd64-only — no arm64 manifest exists
+GPU_PLATFORM := linux/amd64
 
 # Python version matrix for multi-version builds
-GPU_PYTHON_VERSIONS := 3.11 3.12
+GPU_PYTHON_VERSIONS := 3.10 3.11 3.12
 CPU_PYTHON_VERSIONS := 3.10 3.11 3.12
 DEFAULT_PYTHON_VERSION := 3.11
-
-# PyTorch base image mapping per Python version (GPU only)
-PYTORCH_BASE_3.11 := pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
-PYTORCH_BASE_3.12 := pytorch/pytorch:2.10.0-cuda12.8-cudnn9-runtime
+PYTHON_VERSION ?= $(shell python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 
 .PHONY: setup help
 
@@ -64,9 +63,9 @@ build: # Build both GPU and CPU Docker images
 	make build-lb
 	make build-lb-cpu
 
-build-gpu: setup # Build GPU Docker image for host platform
+build-gpu: setup # Build GPU Docker image (amd64 only)
 	docker buildx build \
-	--platform $(PLATFORM) \
+	--platform $(GPU_PLATFORM) \
 	-t $(FULL_IMAGE) \
 	. --load
 
@@ -77,9 +76,9 @@ build-cpu: setup # Build CPU-only Docker image for host platform
 	-t $(FULL_IMAGE_CPU) \
 	. --load
 
-build-lb: setup # Build Load Balancer Docker image for host platform
+build-lb: setup # Build GPU Load Balancer Docker image (amd64 only)
 	docker buildx build \
-	--platform $(PLATFORM) \
+	--platform $(GPU_PLATFORM) \
 	-f Dockerfile-lb \
 	-t $(IMAGE)-lb:$(TAG) \
 	. --load
@@ -96,70 +95,71 @@ build-lb-cpu: setup # Build CPU-only Load Balancer Docker image for host platfor
 # Custom tag: make build-wip WIP_TAG=myname-feature
 # Then deploy with: export FLASH_IMAGE_TAG=wip (or your custom tag)
 
-build-wip: # Build and push all WIP images (multi-platform)
+build-wip: # Build and push all WIP images for a single Python version (multi-platform)
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "Building multi-platform WIP images with tag :$(WIP_TAG)"
+	@echo "Building multi-platform WIP images for Python $(PYTHON_VERSION)"
+	@echo "Tag: py$(PYTHON_VERSION)-$(WIP_TAG)"
+	@echo "Override: make build-wip PYTHON_VERSION=3.12"
 	@echo "This will push to Docker Hub registry (requires docker login)"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	make build-wip-gpu
-	make build-wip-cpu
-	make build-wip-lb
-	make build-wip-lb-cpu
+	@if echo "$(GPU_PYTHON_VERSIONS)" | grep -qw "$(PYTHON_VERSION)"; then \
+		$(MAKE) build-wip-gpu PYTHON_VERSION=$(PYTHON_VERSION); \
+		$(MAKE) build-wip-lb PYTHON_VERSION=$(PYTHON_VERSION); \
+	else \
+		echo "Skipping GPU/LB images (Python $(PYTHON_VERSION) is CPU-only)"; \
+	fi
+	$(MAKE) build-wip-cpu PYTHON_VERSION=$(PYTHON_VERSION)
+	$(MAKE) build-wip-lb-cpu PYTHON_VERSION=$(PYTHON_VERSION)
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "✅ WIP images pushed to Docker Hub with tag :$(WIP_TAG)"
+	@echo "WIP images pushed with tag :py$(PYTHON_VERSION)-$(WIP_TAG)"
 	@echo "Next steps:"
 	@echo "  1. export FLASH_IMAGE_TAG=$(WIP_TAG)"
 	@echo "  2. Deploy to RunPod and test"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-build-wip-gpu: setup # Build and push GPU image (multi-platform)
+build-wip-gpu: setup # Build and push GPU image (amd64 only)
 	docker buildx build \
-	--platform $(MULTI_PLATFORM) \
-	-t $(IMAGE):$(WIP_TAG) \
+	--platform $(GPU_PLATFORM) \
+	--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
+	-t $(IMAGE):py$(PYTHON_VERSION)-$(WIP_TAG) \
 	. --push
 
 build-wip-cpu: setup # Build and push CPU image (multi-platform)
 	docker buildx build \
 	--platform $(MULTI_PLATFORM) \
+	--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 	-f Dockerfile-cpu \
-	-t $(IMAGE)-cpu:$(WIP_TAG) \
+	-t $(IMAGE)-cpu:py$(PYTHON_VERSION)-$(WIP_TAG) \
 	. --push
 
-build-wip-lb: setup # Build and push LB image (multi-platform)
+build-wip-lb: setup # Build and push GPU LB image (amd64 only)
 	docker buildx build \
-	--platform $(MULTI_PLATFORM) \
+	--platform $(GPU_PLATFORM) \
+	--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 	-f Dockerfile-lb \
-	-t $(IMAGE)-lb:$(WIP_TAG) \
+	-t $(IMAGE)-lb:py$(PYTHON_VERSION)-$(WIP_TAG) \
 	. --push
 
 build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
 	docker buildx build \
 	--platform $(MULTI_PLATFORM) \
+	--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 	-f Dockerfile-lb-cpu \
-	-t $(IMAGE)-lb-cpu:$(WIP_TAG) \
+	-t $(IMAGE)-lb-cpu:py$(PYTHON_VERSION)-$(WIP_TAG) \
 	. --push
 
 # Versioned Build Targets (multi-Python-version matrix)
-# GPU images: Python 3.11, 3.12 (with PyTorch base)
+# GPU images: Python 3.10, 3.11, 3.12 (runpod/pytorch base with all versions pre-installed)
 # CPU images: Python 3.10, 3.11, 3.12 (python:X.Y-slim)
 # Tag format: py${VERSION}-${TAG} (e.g., runpod/flash:py3.11-local)
 
 build-gpu-versioned: setup _build-gpu-versioned # Build GPU images for all GPU Python versions
 _build-gpu-versioned:
-	@pytorch_base() { \
-		case "$$1" in \
-			3.11) echo "$(PYTORCH_BASE_3.11)";; \
-			3.12) echo "$(PYTORCH_BASE_3.12)";; \
-			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
-		esac; \
-	}; \
-	for pyver in $(GPU_PYTHON_VERSIONS); do \
-		base=$$(pytorch_base $$pyver); \
-		echo "Building GPU image for Python $$pyver (base: $$base)..."; \
+	@for pyver in $(GPU_PYTHON_VERSIONS); do \
+		echo "Building GPU image for Python $$pyver..."; \
 		docker buildx build \
-			--platform $(PLATFORM) \
+			--platform $(GPU_PLATFORM) \
 			--build-arg PYTHON_VERSION=$$pyver \
-			--build-arg PYTORCH_BASE=$$base \
 			-t $(IMAGE):py$$pyver-$(TAG) \
 			. --load; \
 	done
@@ -178,20 +178,11 @@ _build-cpu-versioned:
 
 build-lb-versioned: setup _build-lb-versioned # Build GPU-LB images for all GPU Python versions
 _build-lb-versioned:
-	@pytorch_base() { \
-		case "$$1" in \
-			3.11) echo "$(PYTORCH_BASE_3.11)";; \
-			3.12) echo "$(PYTORCH_BASE_3.12)";; \
-			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
-		esac; \
-	}; \
-	for pyver in $(GPU_PYTHON_VERSIONS); do \
-		base=$$(pytorch_base $$pyver); \
-		echo "Building GPU-LB image for Python $$pyver (base: $$base)..."; \
+	@for pyver in $(GPU_PYTHON_VERSIONS); do \
+		echo "Building GPU-LB image for Python $$pyver..."; \
 		docker buildx build \
-			--platform $(PLATFORM) \
+			--platform $(GPU_PLATFORM) \
 			--build-arg PYTHON_VERSION=$$pyver \
-			--build-arg PYTORCH_BASE=$$base \
 			-f Dockerfile-lb \
 			-t $(IMAGE)-lb:py$$pyver-$(TAG) \
 			. --load; \
@@ -217,24 +208,15 @@ build-all-versioned: setup _build-gpu-versioned _build-cpu-versioned _build-lb-v
 
 build-wip-versioned: setup # Build and push all versioned images (multi-platform)
 	@echo "Building and pushing all versioned images with tag prefix py*-$(WIP_TAG)..."
-	@pytorch_base() { \
-		case "$$1" in \
-			3.11) echo "$(PYTORCH_BASE_3.11)";; \
-			3.12) echo "$(PYTORCH_BASE_3.12)";; \
-			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
-		esac; \
-	}; \
-	for pyver in $(GPU_PYTHON_VERSIONS); do \
-		base=$$(pytorch_base $$pyver); \
+	@for pyver in $(GPU_PYTHON_VERSIONS); do \
 		echo "Pushing GPU QB image for Python $$pyver..."; \
 		tag_args="-t $(IMAGE):py$$pyver-$(WIP_TAG)"; \
 		if [ "$$pyver" = "$(DEFAULT_PYTHON_VERSION)" ]; then \
 			tag_args="$$tag_args -t $(IMAGE):$(WIP_TAG)"; \
 		fi; \
 		docker buildx build \
-			--platform $(MULTI_PLATFORM) \
+			--platform $(GPU_PLATFORM) \
 			--build-arg PYTHON_VERSION=$$pyver \
-			--build-arg PYTORCH_BASE=$$base \
 			$$tag_args \
 			. --push; \
 	done
@@ -251,24 +233,15 @@ build-wip-versioned: setup # Build and push all versioned images (multi-platform
 			$$tag_args \
 			. --push; \
 	done
-	@pytorch_base() { \
-		case "$$1" in \
-			3.11) echo "$(PYTORCH_BASE_3.11)";; \
-			3.12) echo "$(PYTORCH_BASE_3.12)";; \
-			*) echo "ERROR: No PyTorch base image mapped for Python $$1" >&2; exit 1;; \
-		esac; \
-	}; \
-	for pyver in $(GPU_PYTHON_VERSIONS); do \
-		base=$$(pytorch_base $$pyver); \
+	@for pyver in $(GPU_PYTHON_VERSIONS); do \
 		echo "Pushing GPU LB image for Python $$pyver..."; \
 		tag_args="-t $(IMAGE)-lb:py$$pyver-$(WIP_TAG)"; \
 		if [ "$$pyver" = "$(DEFAULT_PYTHON_VERSION)" ]; then \
 			tag_args="$$tag_args -t $(IMAGE)-lb:$(WIP_TAG)"; \
 		fi; \
 		docker buildx build \
-			--platform $(MULTI_PLATFORM) \
+			--platform $(GPU_PLATFORM) \
 			--build-arg PYTHON_VERSION=$$pyver \
-			--build-arg PYTORCH_BASE=$$base \
 			-f Dockerfile-lb \
 			$$tag_args \
 			. --push; \

@@ -28,7 +28,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
 COPY README.md pyproject.toml uv.lock ./
 COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
- && uv pip install --system -r requirements.txt
+ && uv pip install --system --break-system-packages -r requirements.txt
 
 EXPOSE 80
 
