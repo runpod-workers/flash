@@ -43,8 +43,11 @@ class DependencyInstaller:
                 import sys
 
                 command = [
-                    "uv", "pip", "install",
-                    "--python", sys.executable,
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    sys.executable,
                     "--break-system-packages",
                 ] + packages
             else:
