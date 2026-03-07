@@ -1,10 +1,8 @@
 ARG PYTHON_VERSION=3.11
-ARG PYTORCH_BASE=pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
-FROM ${PYTORCH_BASE}
+FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
 
-# Validate base image Python matches requested version
-ARG PYTHON_VERSION
-RUN python -c "import sys; expected='$PYTHON_VERSION'; actual='.'.join(map(str,sys.version_info[:2])); assert actual==expected, f'Python mismatch: expected {expected}, got {actual}'"
+# Use the base image's Python as-is to preserve pre-installed packages (torch, cuda libs).
+RUN python --version
 
 WORKDIR /app
 
@@ -35,10 +33,14 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
  && rm -rf /var/lib/apt/lists/*
 
 # Copy app code and install dependencies
+# Use --python to target the base image's Python (preserves torch in its site-packages)
 COPY README.md pyproject.toml uv.lock ./
 COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
- && uv pip install --system -r requirements.txt
+ && uv pip install --python $(which python) --break-system-packages -r requirements.txt
+
+# Verify torch is available from the base image
+RUN python -c "import torch; print(f'torch {torch.__version__} CUDA {torch.cuda.is_available()}')"
 
 EXPOSE 80
 
