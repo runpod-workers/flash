@@ -92,6 +92,14 @@ uv export --format requirements-txt --no-dev --no-hashes > "$BUILD_DIR/requireme
     --python "$TARBALL_ROOT/venv/bin/python" \
     -r "$BUILD_DIR/requirements.txt"
 
+# 4b. Fix shebangs in venv/bin scripts to use portable /usr/bin/env path
+# (uv pip install stamps absolute build-time paths in console_scripts)
+for script in "$TARBALL_ROOT/venv/bin/"*; do
+    [ -f "$script" ] || continue
+    head -1 "$script" | grep -q "^#!.*$BUILD_DIR" || continue
+    sed -i "1s|^#!.*|#!/usr/bin/env python3|" "$script"
+done
+
 # 5. Copy source files
 echo "Copying source files..."
 cp -r "$REPO_ROOT/src/"*.py "$TARBALL_ROOT/src/" 2>/dev/null || true
