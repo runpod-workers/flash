@@ -31,8 +31,8 @@ graph TD
 ```mermaid
 flowchart LR
     A[Dependencies Required] --> B{Environment Check}
-    B -->|Docker| C[uv pip install --system]
-    B -->|Local| D[uv pip install]
+    B -->|Docker| C[uv pip install --python sys.executable]
+    B -->|Local| D[uv pip install --python python]
     C --> E[Direct System Installation]
     D --> F[Managed Environment Installation]
 ```
@@ -71,10 +71,11 @@ graph TB
 ### System Installation Strategy
 ```python
 # Docker environment
-command = ["uv", "pip", "install", "--system"] + packages
+import sys
+command = ["uv", "pip", "install", "--python", sys.executable, "--break-system-packages"] + packages
 
 # Local environment
-command = ["uv", "pip", "install", "--python-preference=managed"] + packages
+command = ["uv", "pip", "install", "--python", "python"] + packages
 ```
 
 This architecture refactor addresses the core PyTorch installation issues while maintaining API compatibility and improving operational simplicity.
@@ -96,7 +97,7 @@ The GPU base image installs Python interpreters 3.9 through 3.14 via the deadsna
 /usr/local/bin/python3 -> /usr/bin/python3.12
 ```
 
-When the worker runs `uv pip install --system`, packages install into the 3.12 site-packages directory, coexisting with the pre-installed torch and CUDA libraries.
+When the worker runs `uv pip install --python sys.executable --break-system-packages`, packages install into the 3.12 site-packages directory, coexisting with the pre-installed torch and CUDA libraries.
 
 ### CPU Base Images
 

@@ -51,7 +51,9 @@ class DependencyInstaller:
                     "--break-system-packages",
                 ] + packages
             else:
-                command = ["pip", "install"] + packages
+                import sys
+
+                command = [sys.executable, "-m", "pip", "install"] + packages
         else:
             # Local: Always use uv with current python for consistency
             command = ["uv", "pip", "install", "--python", "python"] + packages

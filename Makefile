@@ -193,7 +193,7 @@ _build-lb-cpu-versioned:
 	done
 
 build-all-versioned: setup _build-gpu-versioned _build-cpu-versioned _build-lb-versioned _build-lb-cpu-versioned # Build all versioned images (GPU+CPU, QB+LB)
-	@echo "All versioned images built ($(words $(GPU_PYTHON_VERSIONS)) GPU + $(words $(CPU_PYTHON_VERSIONS)) CPU x 2 modes)."
+	@echo "All 8 versioned images built: $(words $(GPU_PYTHON_VERSIONS)) GPU x 2 modes + $(words $(CPU_PYTHON_VERSIONS)) CPU x 2 modes."
 
 # Versioned WIP Push Targets (multi-platform, requires Docker Hub push)
 # Also tags DEFAULT_PYTHON_VERSION images as latest (unversioned tag)
