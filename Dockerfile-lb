@@ -1,4 +1,4 @@
-ARG PYTHON_VERSION=3.11
+# Base image provides Python 3.12 (from runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204)
 FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
 
 # Use the base image's Python as-is to preserve pre-installed packages (torch, cuda libs).
@@ -39,8 +39,15 @@ COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
  && uv pip install --python $(which python) --break-system-packages -r requirements.txt
 
-# Verify torch is available from the base image
-RUN python -c "import torch; print(f'torch {torch.__version__} CUDA {torch.cuda.is_available()}')"
+# Install numpy for the base image's Python version.
+# The runpod/pytorch image ships torch but not numpy. Flash build excludes numpy
+# from tarballs (BASE_IMAGE_PACKAGES) to save tarball space (~30 MB), so numpy
+# must be provided here in the base image.
+RUN pip install --no-cache-dir numpy
+
+# Verify torch and numpy are available from the base image
+RUN python -c "import torch; print(f'torch {torch.__version__} CUDA {torch.cuda.is_available()}')" \
+ && python -c "import numpy; print(f'numpy {numpy.__version__}')"
 
 EXPOSE 80
 

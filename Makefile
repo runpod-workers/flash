@@ -22,10 +22,12 @@ MULTI_PLATFORM := linux/amd64,linux/arm64
 GPU_PLATFORM := linux/amd64
 
 # Python version matrix for multi-version builds
-GPU_PYTHON_VERSIONS := 3.10 3.11 3.12
+# GPU base image (runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204) only supports 3.12
+GPU_PYTHON_VERSION := 3.12
+GPU_PYTHON_VERSIONS := 3.12
 CPU_PYTHON_VERSIONS := 3.10 3.11 3.12
-DEFAULT_PYTHON_VERSION := 3.11
-PYTHON_VERSION ?= $(shell python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+DEFAULT_PYTHON_VERSION := 3.12
+PYTHON_VERSION ?= $(DEFAULT_PYTHON_VERSION)
 
 .PHONY: setup help
 
@@ -95,23 +97,17 @@ build-lb-cpu: setup # Build CPU-only Load Balancer Docker image for host platfor
 # Custom tag: make build-wip WIP_TAG=myname-feature
 # Then deploy with: export FLASH_IMAGE_TAG=wip (or your custom tag)
 
-build-wip: # Build and push all WIP images for a single Python version (multi-platform)
+build-wip: # Build and push all WIP images (GPU fixed at 3.12, CPU at PYTHON_VERSION)
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "Building multi-platform WIP images for Python $(PYTHON_VERSION)"
-	@echo "Tag: py$(PYTHON_VERSION)-$(WIP_TAG)"
-	@echo "Override: make build-wip PYTHON_VERSION=3.12"
+	@echo "Building WIP images: GPU py$(GPU_PYTHON_VERSION), CPU py$(PYTHON_VERSION)"
 	@echo "This will push to Docker Hub registry (requires docker login)"
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@if echo "$(GPU_PYTHON_VERSIONS)" | grep -qw "$(PYTHON_VERSION)"; then \
-		$(MAKE) build-wip-gpu PYTHON_VERSION=$(PYTHON_VERSION); \
-		$(MAKE) build-wip-lb PYTHON_VERSION=$(PYTHON_VERSION); \
-	else \
-		echo "Skipping GPU/LB images (Python $(PYTHON_VERSION) is CPU-only)"; \
-	fi
+	$(MAKE) build-wip-gpu
+	$(MAKE) build-wip-lb
 	$(MAKE) build-wip-cpu PYTHON_VERSION=$(PYTHON_VERSION)
 	$(MAKE) build-wip-lb-cpu PYTHON_VERSION=$(PYTHON_VERSION)
 	@echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-	@echo "WIP images pushed with tag :py$(PYTHON_VERSION)-$(WIP_TAG)"
+	@echo "WIP images pushed: GPU :py$(GPU_PYTHON_VERSION)-$(WIP_TAG), CPU :py$(PYTHON_VERSION)-$(WIP_TAG)"
 	@echo "Next steps:"
 	@echo "  1. export FLASH_IMAGE_TAG=$(WIP_TAG)"
 	@echo "  2. Deploy to RunPod and test"
@@ -120,8 +116,7 @@ build-wip: # Build and push all WIP images for a single Python version (multi-pl
 build-wip-gpu: setup # Build and push GPU image (amd64 only)
 	docker buildx build \
 	--platform $(GPU_PLATFORM) \
-	--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
-	-t $(IMAGE):py$(PYTHON_VERSION)-$(WIP_TAG) \
+	-t $(IMAGE):py$(GPU_PYTHON_VERSION)-$(WIP_TAG) \
 	. --push
 
 build-wip-cpu: setup # Build and push CPU image (multi-platform)
@@ -135,9 +130,8 @@ build-wip-cpu: setup # Build and push CPU image (multi-platform)
 build-wip-lb: setup # Build and push GPU LB image (amd64 only)
 	docker buildx build \
 	--platform $(GPU_PLATFORM) \
-	--build-arg PYTHON_VERSION=$(PYTHON_VERSION) \
 	-f Dockerfile-lb \
-	-t $(IMAGE)-lb:py$(PYTHON_VERSION)-$(WIP_TAG) \
+	-t $(IMAGE)-lb:py$(GPU_PYTHON_VERSION)-$(WIP_TAG) \
 	. --push
 
 build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
@@ -149,9 +143,9 @@ build-wip-lb-cpu: setup # Build and push LB CPU image (multi-platform)
 	. --push
 
 # Versioned Build Targets (multi-Python-version matrix)
-# GPU images: Python 3.10, 3.11, 3.12 (runpod/pytorch base with all versions pre-installed)
+# GPU images: Python 3.12 only (runpod/pytorch base image pinned)
 # CPU images: Python 3.10, 3.11, 3.12 (python:X.Y-slim)
-# Tag format: py${VERSION}-${TAG} (e.g., runpod/flash:py3.11-local)
+# Tag format: py${VERSION}-${TAG} (e.g., runpod/flash:py3.12-local)
 
 build-gpu-versioned: setup _build-gpu-versioned # Build GPU images for all GPU Python versions
 _build-gpu-versioned:
@@ -159,7 +153,6 @@ _build-gpu-versioned:
 		echo "Building GPU image for Python $$pyver..."; \
 		docker buildx build \
 			--platform $(GPU_PLATFORM) \
-			--build-arg PYTHON_VERSION=$$pyver \
 			-t $(IMAGE):py$$pyver-$(TAG) \
 			. --load; \
 	done
@@ -182,7 +175,6 @@ _build-lb-versioned:
 		echo "Building GPU-LB image for Python $$pyver..."; \
 		docker buildx build \
 			--platform $(GPU_PLATFORM) \
-			--build-arg PYTHON_VERSION=$$pyver \
 			-f Dockerfile-lb \
 			-t $(IMAGE)-lb:py$$pyver-$(TAG) \
 			. --load; \
@@ -200,8 +192,8 @@ _build-lb-cpu-versioned:
 			. --load; \
 	done
 
-build-all-versioned: setup _build-gpu-versioned _build-cpu-versioned _build-lb-versioned _build-lb-cpu-versioned # Build all 10 versioned images (GPU+CPU, QB+LB)
-	@echo "All 10 versioned images built."
+build-all-versioned: setup _build-gpu-versioned _build-cpu-versioned _build-lb-versioned _build-lb-cpu-versioned # Build all versioned images (GPU+CPU, QB+LB)
+	@echo "All versioned images built ($(words $(GPU_PYTHON_VERSIONS)) GPU + $(words $(CPU_PYTHON_VERSIONS)) CPU x 2 modes)."
 
 # Versioned WIP Push Targets (multi-platform, requires Docker Hub push)
 # Also tags DEFAULT_PYTHON_VERSION images as latest (unversioned tag)
@@ -216,7 +208,6 @@ build-wip-versioned: setup # Build and push all versioned images (multi-platform
 		fi; \
 		docker buildx build \
 			--platform $(GPU_PLATFORM) \
-			--build-arg PYTHON_VERSION=$$pyver \
 			$$tag_args \
 			. --push; \
 	done
@@ -241,7 +232,6 @@ build-wip-versioned: setup # Build and push all versioned images (multi-platform
 		fi; \
 		docker buildx build \
 			--platform $(GPU_PLATFORM) \
-			--build-arg PYTHON_VERSION=$$pyver \
 			-f Dockerfile-lb \
 			$$tag_args \
 			. --push; \
@@ -288,7 +278,7 @@ smoketest-versioned: build-all-versioned # Verify Python version in each version
 		check_version "CPU LB" "$(IMAGE)-lb-cpu:py$$pyver-$(TAG)" "$$pyver"; \
 	done; \
 	if [ $$fail -ne 0 ]; then echo "FAIL: Some images failed version check"; exit 1; fi; \
-	echo "All 10 images passed Python version check."
+	echo "All versioned images passed Python version check."
 
 # Test commands
 test: # Run all tests in parallel
