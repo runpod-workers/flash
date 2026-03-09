@@ -27,7 +27,7 @@ GPU_PYTHON_VERSION := 3.12
 GPU_PYTHON_VERSIONS := 3.12
 CPU_PYTHON_VERSIONS := 3.10 3.11 3.12
 DEFAULT_PYTHON_VERSION := 3.12
-PYTHON_VERSION ?= $(DEFAULT_PYTHON_VERSION)
+PYTHON_VERSION ?= $(shell python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
 
 .PHONY: setup help
 
