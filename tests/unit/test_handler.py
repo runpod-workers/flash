@@ -1,11 +1,20 @@
 """Tests for the RunPod handler function."""
 
+import os
+import sys
+
 import pytest
 import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
-from handler import handler, _load_generated_handler
-from runpod_flash.protos.remote_execution import FunctionResponse
+
+# Clear deployed-mode env var before importing handler to prevent module-level
+# _load_generated_handler() from raising when run outside a Docker container.
+os.environ.pop("FLASH_RESOURCE_NAME", None)
+sys.modules.pop("handler", None)
+
+from handler import handler, _load_generated_handler  # noqa: E402
+from runpod_flash.protos.remote_execution import FunctionResponse  # noqa: E402
 
 
 class TestHandler:
@@ -154,14 +163,16 @@ class TestLoadGeneratedHandler:
             result = _load_generated_handler()
         assert result is None
 
-    def test_logs_warning_when_handler_file_missing(self, tmp_path):
-        """With FLASH_RESOURCE_NAME but no handler file, logs warning and returns None."""
+    def test_raises_when_handler_file_missing(self, tmp_path):
+        """With FLASH_RESOURCE_NAME but no handler file, raises RuntimeError."""
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path") as mock_path_cls:
                 mock_path = mock_path_cls.return_value
                 mock_path.exists.return_value = False
-                result = _load_generated_handler()
-        assert result is None
+                mock_path.resolve.return_value = mock_path
+                mock_path.is_relative_to.return_value = True
+                with pytest.raises(RuntimeError, match="not found for resource"):
+                    _load_generated_handler()
 
     def test_loads_generated_handler_from_file(self, tmp_path):
         """With valid generated handler file, loads and returns handler function."""
@@ -178,22 +189,23 @@ class TestLoadGeneratedHandler:
         assert result is not None
         assert callable(result)
 
-    def test_returns_none_when_spec_creation_fails(self):
-        """If importlib cannot create spec, returns None."""
+    def test_raises_when_spec_creation_fails(self):
+        """If importlib cannot create spec, raises RuntimeError."""
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path") as mock_path_cls:
                 mock_path = mock_path_cls.return_value
                 mock_path.exists.return_value = True
+                mock_path.resolve.return_value = mock_path
+                mock_path.is_relative_to.return_value = True
                 with patch(
                     "handler.importlib.util.spec_from_file_location",
                     return_value=None,
                 ):
-                    result = _load_generated_handler()
+                    with pytest.raises(RuntimeError, match="Failed to create module spec"):
+                        _load_generated_handler()
 
-        assert result is None
-
-    def test_returns_none_on_import_error(self, tmp_path):
-        """If generated handler has ImportError, falls back gracefully."""
+    def test_raises_on_import_error(self, tmp_path):
+        """If generated handler has ImportError, raises RuntimeError."""
         handler_file = tmp_path / "handler_gpu_config.py"
         handler_file.write_text(
             "from nonexistent_package import missing_function\ndef handler(event): pass\n"
@@ -201,56 +213,51 @@ class TestLoadGeneratedHandler:
 
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path", return_value=handler_file):
-                result = _load_generated_handler()
+                with pytest.raises(RuntimeError, match="failed to import"):
+                    _load_generated_handler()
 
-        assert result is None
-
-    def test_returns_none_on_syntax_error(self, tmp_path):
-        """SyntaxError in generated handler logs error and returns None."""
+    def test_raises_on_syntax_error(self, tmp_path):
+        """SyntaxError in generated handler raises RuntimeError."""
         handler_file = tmp_path / "handler_gpu_config.py"
         handler_file.write_text("def handler(event)\n")  # Missing colon
 
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path", return_value=handler_file):
-                result = _load_generated_handler()
+                with pytest.raises(RuntimeError, match="syntax error"):
+                    _load_generated_handler()
 
-        assert result is None
-
-    def test_returns_none_on_generic_exception(self, tmp_path):
-        """Generic exception during module load falls back gracefully."""
+    def test_raises_on_generic_exception(self, tmp_path):
+        """Generic exception during module load raises RuntimeError."""
         handler_file = tmp_path / "handler_gpu_config.py"
         handler_file.write_text("raise RuntimeError('init failed')\n")
 
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path", return_value=handler_file):
-                result = _load_generated_handler()
+                with pytest.raises(RuntimeError, match="failed to load"):
+                    _load_generated_handler()
 
-        assert result is None
-
-    def test_warns_when_handler_attr_missing(self, tmp_path):
-        """Module without 'handler' attribute logs warning and returns None."""
+    def test_raises_when_handler_attr_missing(self, tmp_path):
+        """Module without 'handler' attribute raises RuntimeError."""
         handler_file = tmp_path / "handler_gpu_config.py"
         handler_file.write_text("def not_a_handler(): pass\n")
 
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path", return_value=handler_file):
-                result = _load_generated_handler()
+                with pytest.raises(RuntimeError, match="no 'handler' function"):
+                    _load_generated_handler()
 
-        assert result is None
-
-    def test_returns_none_when_resource_name_has_path_traversal(self):
-        """Path traversal in FLASH_RESOURCE_NAME returns None."""
+    def test_raises_when_resource_name_has_path_traversal(self):
+        """Path traversal in FLASH_RESOURCE_NAME raises RuntimeError."""
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "../../../etc/passwd"}):
-            result = _load_generated_handler()
-        assert result is None
+            with pytest.raises(RuntimeError, match="resolves outside /app"):
+                _load_generated_handler()
 
-    def test_returns_none_when_handler_not_callable(self, tmp_path):
-        """Non-callable 'handler' attribute returns None."""
+    def test_raises_when_handler_not_callable(self, tmp_path):
+        """Non-callable 'handler' attribute raises RuntimeError."""
         handler_file = tmp_path / "handler_gpu_config.py"
         handler_file.write_text("handler = 42\n")
 
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path", return_value=handler_file):
-                result = _load_generated_handler()
-
-        assert result is None
+                with pytest.raises(RuntimeError, match="not callable"):
+                    _load_generated_handler()

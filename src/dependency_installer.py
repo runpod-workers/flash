@@ -37,11 +37,23 @@ class DependencyInstaller:
 
         if self._is_docker_environment():
             if accelerate_downloads:
-                # Packages are installed to the system location where they can be imported
-                command = ["uv", "pip", "install", "--system"] + packages
+                # Install into the running Python interpreter's environment.
+                # Using --python sys.executable (not --system) ensures packages go into
+                # the same site-packages as torch and other base image packages.
+                import sys
+
+                command = [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    sys.executable,
+                    "--break-system-packages",
+                ] + packages
             else:
-                # Use full path to system python
-                command = ["pip", "install"] + packages
+                import sys
+
+                command = [sys.executable, "-m", "pip", "install"] + packages
         else:
             # Local: Always use uv with current python for consistency
             command = ["uv", "pip", "install", "--python", "python"] + packages

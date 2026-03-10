@@ -1,5 +1,16 @@
-FROM pytorch/pytorch:2.9.1-cuda12.8-cudnn9-runtime
-# Python 3.12 included in this PyTorch image
+# Base image provides Python 3.12 (from runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204)
+FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
+
+# Use the base image's Python as-is to preserve pre-installed packages (torch, cuda libs).
+# The pytorch base image provides its own Python with torch already installed.
+# Symlinking to /usr/bin/python3.X would switch to a bare system Python without torch.
+# Validate that the base image provides the expected Python version.
+ARG EXPECTED_PYTHON_VERSION=3.12
+RUN python --version && \
+    actual=$(python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')") && \
+    if [ "$actual" != "$EXPECTED_PYTHON_VERSION" ]; then \
+      echo "ERROR: Expected Python $EXPECTED_PYTHON_VERSION but base image provides $actual" && exit 1; \
+    fi
 
 WORKDIR /app
 
@@ -30,9 +41,20 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
  && rm -rf /var/lib/apt/lists/*
 
 # Copy app code and install dependencies
+# Use --python to target the base image's Python (preserves torch in its site-packages)
 COPY README.md pyproject.toml uv.lock ./
 COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
- && uv pip install --system -r requirements.txt
+ && uv pip install --python $(which python) --break-system-packages -r requirements.txt
+
+# Install numpy for the base image's Python version.
+# The runpod/pytorch image ships torch but not numpy. Flash build excludes numpy
+# from tarballs (BASE_IMAGE_PACKAGES) to save tarball space (~30 MB), so numpy
+# must be provided here in the base image.
+RUN python -m pip install --no-cache-dir numpy
+
+# Verify torch and numpy are available from the base image
+RUN python -c "import torch; print(f'torch {torch.__version__} CUDA {torch.cuda.is_available()}')" \
+ && python -c "import numpy; print(f'numpy {numpy.__version__}')"
 
 CMD ["python", "handler.py"]

@@ -17,6 +17,26 @@ This repository serves as a starting point for creating your own custom RunPod S
 3.  **Test:** Run your worker locally to ensure it functions correctly.
 4.  **Deploy:** Connect your repository to RunPod or build and push the Docker image manually.
 
+## Python Version Support
+
+### GPU Images: Python 3.12 Only
+
+The GPU base image (`runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204`) installs multiple Python interpreters (3.9-3.14) via the deadsnakes PPA, but torch and CUDA-linked packages are only installed for Python 3.12. The `python` symlink points to 3.12. The other interpreters exist for interactive pod and notebook use cases, not for serverless workers.
+
+Using a different Python version in a GPU worker would require reinstalling torch (~2GB) and ensuring all C-extension wheels (numpy, Pillow, etc.) match the interpreter's ABI. This is not supported by the build pipeline.
+
+### CPU Images: Python 3.10, 3.11, 3.12
+
+CPU images use `python:X.Y-slim` base images where the Python version is configurable via the `PYTHON_VERSION` build arg. Any of 3.10, 3.11, or 3.12 can be used.
+
+### Build Pipeline
+
+`flash build` automatically downloads wheels for the container's Python version (3.12 for GPU), regardless of the build machine's local Python. Users do not need to configure this.
+
+### Image Tag Format
+
+Image tags follow the pattern `py{version}-{tag}` (e.g., `runpod/flash:py3.12-latest`).
+
 ## Customizing Your Worker
 
 - **`handler.py`:** This is the core of your worker.
