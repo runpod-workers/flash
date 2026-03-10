@@ -227,6 +227,8 @@ class TestLoadGeneratedHandler:
         import importlib.util
 
         spec = importlib.util.spec_from_file_location("handler_gpu_config", handler_file)
+        assert spec is not None, f"Failed to create module spec for {handler_file}"
+        assert spec.loader is not None, f"Module spec has no loader for {handler_file}"
 
         call_count = 0
         original_exec = spec.loader.exec_module
@@ -235,7 +237,7 @@ class TestLoadGeneratedHandler:
             nonlocal call_count
             call_count += 1
             if call_count == 1:
-                raise ImportError("no module", name="fake_recovery_pkg")
+                raise ModuleNotFoundError("no module", name="fake_recovery_pkg")
             original_exec(module)
 
         with patch.object(spec.loader, "exec_module", side_effect=exec_side_effect):
@@ -248,13 +250,13 @@ class TestLoadGeneratedHandler:
     def test_recovery_stops_if_same_package_fails_twice(self, tmp_path):
         """If the same package keeps failing after install, raises immediately."""
         handler_file = tmp_path / "handler_gpu_config.py"
-        # Always raises ImportError for same package, even after "install"
-        handler_file.write_text("raise ImportError('still missing', name='stubborn_pkg')\n")
+        # Always raises ModuleNotFoundError for same package, even after "install"
+        handler_file.write_text("raise ModuleNotFoundError('still missing', name='stubborn_pkg')\n")
 
         with patch.dict("os.environ", {"FLASH_RESOURCE_NAME": "gpu_config"}):
             with patch("handler.Path", return_value=handler_file):
                 with patch("handler._try_install_missing_package", return_value=True):
-                    with pytest.raises(RuntimeError, match="failed to import"):
+                    with pytest.raises(RuntimeError, match="still failing after attempted"):
                         _load_generated_handler()
 
     def test_raises_on_syntax_error(self, tmp_path):

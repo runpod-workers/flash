@@ -79,19 +79,27 @@ def _exec_handler_module(
     """
     installed_packages: list[str] = []
 
-    for _attempt in range(MAX_IMPORT_RECOVERY_ATTEMPTS):
+    for _attempt in range(MAX_IMPORT_RECOVERY_ATTEMPTS + 1):
         mod = importlib.util.module_from_spec(spec)
         try:
             spec.loader.exec_module(mod)  # type: ignore[union-attr]
             return mod
-        except ImportError as e:
+        except ModuleNotFoundError as e:
+            if len(installed_packages) >= MAX_IMPORT_RECOVERY_ATTEMPTS:
+                raise _HandlerRecoveryError(
+                    f"Generated handler {handler_file} failed to load after "
+                    f"installing {len(installed_packages)} missing packages: "
+                    f"{installed_packages}. Too many missing dependencies — "
+                    f"redeploy with 'flash deploy'."
+                ) from e
+
             package_name = _extract_missing_package(e)
             if not package_name or package_name in installed_packages:
-                # Can't determine package or already tried installing it
                 raise _HandlerRecoveryError(
-                    f"Generated handler {handler_file} failed to import: {e}. "
-                    f"This usually means a dependency was built for the wrong "
-                    f"Python version. Redeploy with 'flash deploy'."
+                    "Import is still failing after attempted automatic recovery "
+                    "or the missing dependency could not be determined. "
+                    "Inspect your handler and its dependencies, then redeploy "
+                    "with 'flash deploy'."
                 ) from e
 
             logger.warning(
@@ -113,6 +121,7 @@ def _exec_handler_module(
             for key in list(sys.modules):
                 if key == package_name or key.startswith(f"{package_name}."):
                     del sys.modules[key]
+            importlib.invalidate_caches()
             logger.info("Installed '%s', retrying handler load", package_name)
 
     raise _HandlerRecoveryError(
