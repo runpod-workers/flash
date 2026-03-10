@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/runpod-workers/flash/compare/v1.2.0...v1.3.0) (2026-03-10)
+
+
+### Features
+
+* **handler:** on-the-fly package install for deployed mode ([#77](https://github.com/runpod-workers/flash/issues/77)) ([bc96b33](https://github.com/runpod-workers/flash/commit/bc96b3366c94847b3c7128c2d8f3185194fa09a0))
+
 ## [1.2.0](https://github.com/runpod-workers/flash/compare/v1.1.1...v1.2.0) (2026-03-10)
 
 
