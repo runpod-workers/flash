@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.2.0](https://github.com/runpod-workers/flash/compare/v1.1.1...v1.2.0) (2026-03-10)
+
+
+### Features
+
+* Python version matrix for Docker images + error-masking fix ([#76](https://github.com/runpod-workers/flash/issues/76)) ([a9845c6](https://github.com/runpod-workers/flash/commit/a9845c6e8db75419c26e6f58a17737d7bb0fe25c))
+
+
+### Bug Fixes
+
+* **ci:** remove partial semver docker tags ([#73](https://github.com/runpod-workers/flash/issues/73)) ([4499808](https://github.com/runpod-workers/flash/commit/44998087a608a64b0e64020efeb5bf2320d1561f))
+
 ## [1.1.1](https://github.com/runpod-workers/flash/compare/v1.1.0...v1.1.1) (2026-02-26)
 
 
