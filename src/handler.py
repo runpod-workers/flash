@@ -1,10 +1,11 @@
 import importlib.util
 import logging
 import os
+import uuid
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from logger import setup_logging
+from logger import setup_logging, set_request_id, reset_request_id
 from unpack_volume import maybe_unpack
 from version import format_version_banner
 
@@ -19,6 +20,44 @@ maybe_unpack()
 
 # Log after unpack so bundled runpod_flash is on sys.path
 logger.info(format_version_banner())
+
+
+def _extract_request_id(event: Dict[str, Any]) -> str:
+    """Extract RunPod job id from event, with safe fallback."""
+    event_id = event.get("id")
+    if isinstance(event_id, str) and event_id.strip():
+        return event_id
+
+    job_id = event.get("job_id")
+    if isinstance(job_id, str) and job_id.strip():
+        return job_id
+
+    job = event.get("job")
+    if isinstance(job, dict):
+        nested_job_id = job.get("id")
+        if isinstance(nested_job_id, str) and nested_job_id.strip():
+            return nested_job_id
+
+    return str(uuid.uuid4())
+
+
+def _extract_request_id(event: Dict[str, Any]) -> str:
+    """Extract RunPod job id from event, with safe fallback."""
+    event_id = event.get("id")
+    if isinstance(event_id, str) and event_id.strip():
+        return event_id
+
+    job_id = event.get("job_id")
+    if isinstance(job_id, str) and job_id.strip():
+        return job_id
+
+    job = event.get("job")
+    if isinstance(job, dict):
+        nested_job_id = job.get("id")
+        if isinstance(nested_job_id, str) and nested_job_id.strip():
+            return nested_job_id
+
+    return str(uuid.uuid4())
 
 
 def _load_generated_handler() -> Optional[Any]:
@@ -119,7 +158,15 @@ def _load_generated_handler() -> Optional[Any]:
 _generated = _load_generated_handler()
 
 if _generated:
-    handler = _generated
+    generated_handler = _generated
+
+    async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
+        request_id_token = set_request_id(_extract_request_id(event))
+        try:
+            return await generated_handler(event)
+        finally:
+            reset_request_id(request_id_token)
+
 else:
     # Fallback: original FunctionRequest handler (backward compatible)
     from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
@@ -128,6 +175,7 @@ else:
     async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
         """RunPod serverless function handler with dependency installation."""
         output: FunctionResponse
+        request_id_token = set_request_id(_extract_request_id(event))
 
         try:
             executor = RemoteExecutor()
@@ -139,6 +187,8 @@ else:
                 success=False,
                 error=f"Error in handler: {str(error)}",
             )
+        finally:
+            reset_request_id(request_id_token)
 
         return output.model_dump()  # type: ignore[no-any-return]
 

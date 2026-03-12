@@ -11,7 +11,7 @@ import threading
 from collections import deque
 from typing import Optional, Deque, Callable
 
-from logger import get_log_format
+from logger import ensure_request_id_filter, get_log_format
 
 
 class LogStreamer:
@@ -58,6 +58,7 @@ class LogStreamer:
             # Use same format as main logging
             formatter = logging.Formatter(get_log_format(level))
             self._handler.setFormatter(formatter)
+            ensure_request_id_filter(self._handler)
 
             # Add to root logger
             root_logger = logging.getLogger()

@@ -4,7 +4,7 @@ import pytest
 import base64
 import cloudpickle
 from unittest.mock import patch, AsyncMock
-from handler import handler, _load_generated_handler
+from handler import handler, _load_generated_handler, _extract_request_id
 from runpod_flash.protos.remote_execution import FunctionResponse
 
 
@@ -114,6 +114,38 @@ class TestHandler:
             assert result["success"] is True
             assert "result" in result
             assert result["stdout"] == "Test output"
+
+    @pytest.mark.asyncio
+    async def test_handler_uses_runpod_job_id_for_log_context(self):
+        """Handler should set logger request_id using RunPod job id."""
+        event = {
+            "id": "job-123",
+            "input": {
+                "function_name": "test_func",
+                "function_code": "def test_func(): return 'success'",
+                "args": [],
+                "kwargs": {},
+            },
+        }
+
+        with (
+            patch("handler.set_request_id", return_value="token") as mock_set,
+            patch("handler.reset_request_id") as mock_reset,
+            patch("handler.RemoteExecutor") as mock_executor_class,
+        ):
+            mock_executor = AsyncMock()
+            mock_executor_class.return_value = mock_executor
+            mock_executor.ExecuteFunction.return_value = FunctionResponse(
+                success=True,
+                result=base64.b64encode(cloudpickle.dumps("success")).decode("utf-8"),
+                stdout="Function executed successfully",
+            )
+
+            result = await handler(event)
+
+            assert result["success"] is True
+            mock_set.assert_called_once_with("job-123")
+            mock_reset.assert_called_once_with("token")
 
     @pytest.mark.asyncio
     async def test_handler_class_execution(self):
@@ -254,3 +286,20 @@ class TestLoadGeneratedHandler:
                 result = _load_generated_handler()
 
         assert result is None
+
+
+class TestExtractRequestId:
+    """Tests for request-id extraction in QB handler."""
+
+    def test_extract_uses_event_id(self):
+        assert _extract_request_id({"id": "job-main"}) == "job-main"
+
+    def test_extract_uses_job_id_fallback(self):
+        assert _extract_request_id({"job_id": "job-fallback"}) == "job-fallback"
+
+    def test_extract_uses_nested_job_id_fallback(self):
+        assert _extract_request_id({"job": {"id": "job-nested"}}) == "job-nested"
+
+    def test_extract_generates_uuid_when_missing(self):
+        with patch("handler.uuid.uuid4", return_value="generated-id"):
+            assert _extract_request_id({}) == "generated-id"
