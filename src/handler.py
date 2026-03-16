@@ -24,6 +24,7 @@ maybe_unpack()
 # Log after unpack so bundled runpod_flash is on sys.path
 logger.info(format_version_banner())
 
+
 def _extract_request_id(event: Dict[str, Any]) -> str:
     """Extract RunPod job id from event, with safe fallback."""
     event_id = event.get("id")
@@ -41,6 +42,7 @@ def _extract_request_id(event: Dict[str, Any]) -> str:
             return nested_job_id
 
     return str(uuid.uuid4())
+
 
 def _is_deployed_mode() -> bool:
     """True when running as a Flash-deployed endpoint (not Live Serverless)."""
