@@ -101,5 +101,14 @@ def setup_logging(
     for handler in root_logger.handlers:
         ensure_request_id_filter(handler)
 
+        current_formatter = handler.formatter
+        if current_formatter is None:
+            handler.setFormatter(logging.Formatter(fmt))
+            continue
+
+        current_format = getattr(current_formatter, "_fmt", "")
+        if "%(request_id)s" not in current_format:
+            handler.setFormatter(logging.Formatter(fmt))
+
     if resolved_level == logging.DEBUG:
         logging.getLogger("filelock").setLevel(logging.INFO)
