@@ -8,7 +8,7 @@ from collections.abc import Awaitable
 from typing import Any, Dict, Optional
 
 from constants import MAX_IMPORT_RECOVERY_ATTEMPTS
-from logger import setup_logging, set_request_id, reset_request_id
+from logger import reset_request_id, set_request_id, setup_logging
 from unpack_volume import maybe_unpack
 from version import format_version_banner
 
@@ -237,11 +237,17 @@ def _load_generated_handler() -> Optional[Any]:
 # Live Serverless mode: FunctionRequest handler is the only path.
 if _is_deployed_mode():
     _generated = _load_generated_handler()
+    if _generated is None:
+        raise RuntimeError(
+            "FLASH_RESOURCE_NAME is set but no generated handler could be loaded. "
+            "Ensure the deployed artifact includes handler_<resource_name>.py and redeploy with 'flash deploy'."
+        )
+    generated_handler = _generated
 
     async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
         request_id_token = set_request_id(_extract_request_id(event))
         try:
-            result = _generated(event)
+            result = generated_handler(event)
             if isinstance(result, Awaitable):
                 return await result
             return result

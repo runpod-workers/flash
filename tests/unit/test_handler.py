@@ -13,7 +13,7 @@ from unittest.mock import patch, AsyncMock
 os.environ.pop("FLASH_RESOURCE_NAME", None)
 sys.modules.pop("handler", None)
 
-from handler import handler, _load_generated_handler  # noqa: E402
+from handler import handler, _extract_request_id, _load_generated_handler  # noqa: E402
 from runpod_flash.protos.remote_execution import FunctionResponse  # noqa: E402
 
 
@@ -152,6 +152,25 @@ class TestHandler:
             assert result["success"] is True
             assert "instance_id" in result
             assert "instance_info" in result
+
+
+class TestExtractRequestId:
+    """Test cases for _extract_request_id event parsing."""
+
+    def test_prefers_top_level_id(self):
+        event = {"id": "job-top", "job_id": "job-fallback", "job": {"id": "job-nested"}}
+
+        assert _extract_request_id(event) == "job-top"
+
+    def test_uses_job_id_when_id_missing(self):
+        event = {"job_id": "job-secondary", "job": {"id": "job-nested"}}
+
+        assert _extract_request_id(event) == "job-secondary"
+
+    def test_uses_nested_job_id_when_top_level_ids_missing(self):
+        event = {"job": {"id": "job-nested"}}
+
+        assert _extract_request_id(event) == "job-nested"
 
 
 class TestLoadGeneratedHandler:
