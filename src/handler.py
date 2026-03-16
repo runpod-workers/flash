@@ -2,11 +2,13 @@ import importlib.util
 import logging
 import os
 import sys
+import uuid
 from pathlib import Path
+from collections.abc import Awaitable
 from typing import Any, Dict, Optional
 
 from constants import MAX_IMPORT_RECOVERY_ATTEMPTS
-from logger import setup_logging
+from logger import setup_logging, set_request_id, reset_request_id
 from unpack_volume import maybe_unpack
 from version import format_version_banner
 
@@ -22,6 +24,23 @@ maybe_unpack()
 # Log after unpack so bundled runpod_flash is on sys.path
 logger.info(format_version_banner())
 
+def _extract_request_id(event: Dict[str, Any]) -> str:
+    """Extract RunPod job id from event, with safe fallback."""
+    event_id = event.get("id")
+    if isinstance(event_id, str) and event_id.strip():
+        return event_id
+
+    job_id = event.get("job_id")
+    if isinstance(job_id, str) and job_id.strip():
+        return job_id
+
+    job = event.get("job")
+    if isinstance(job, dict):
+        nested_job_id = job.get("id")
+        if isinstance(nested_job_id, str) and nested_job_id.strip():
+            return nested_job_id
+
+    return str(uuid.uuid4())
 
 def _is_deployed_mode() -> bool:
     """True when running as a Flash-deployed endpoint (not Live Serverless)."""
@@ -215,7 +234,18 @@ def _load_generated_handler() -> Optional[Any]:
 # Deployed mode: generated handler is mandatory, failures are fatal.
 # Live Serverless mode: FunctionRequest handler is the only path.
 if _is_deployed_mode():
-    handler = _load_generated_handler()
+    _generated = _load_generated_handler()
+
+    async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
+        request_id_token = set_request_id(_extract_request_id(event))
+        try:
+            result = _generated(event)
+            if isinstance(result, Awaitable):
+                return await result
+            return result
+        finally:
+            reset_request_id(request_id_token)
+
 else:
     from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
     from remote_executor import RemoteExecutor
@@ -223,6 +253,7 @@ else:
     async def handler(event: Dict[str, Any]) -> Dict[str, Any]:
         """RunPod serverless handler for Live Serverless (FunctionRequest protocol)."""
         output: FunctionResponse
+        request_id_token = set_request_id(_extract_request_id(event))
 
         try:
             executor = RemoteExecutor()
@@ -234,6 +265,8 @@ else:
                 success=False,
                 error=f"Error in handler: {str(error)}",
             )
+        finally:
+            reset_request_id(request_id_token)
 
         return output.model_dump()  # type: ignore[no-any-return]
 
