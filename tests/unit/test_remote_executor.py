@@ -588,6 +588,48 @@ class TestRemoteExecutor:
             mock_registry.get_endpoint_for_function.assert_called_once_with("my_func")
 
     @pytest.mark.asyncio
+    async def test_cross_endpoint_routing_includes_user_agent_header(self):
+        """HTTP requests to remote endpoints must include Runpod Flash User-Agent."""
+        request = FunctionRequest(function_name="my_func")
+
+        with (
+            patch("remote_executor.ServiceRegistry") as mock_registry_class,
+            patch("remote_executor.refresh_manifest_if_stale") as mock_refresh,
+            patch("aiohttp.ClientSession") as mock_session_class,
+        ):
+            mock_registry = AsyncMock()
+            mock_registry.is_local_function = Mock(return_value=False)
+            mock_registry.get_endpoint_for_function = AsyncMock(
+                return_value="https://api.runpod.ai/v2/endpoint-xyz789/run"
+            )
+            mock_registry_class.return_value = mock_registry
+            self.executor.service_registry = mock_registry
+            mock_refresh.return_value = True
+
+            # Mock the session context manager and post call
+            mock_response = AsyncMock()
+            mock_response.status = 200
+            mock_response.json = AsyncMock(
+                return_value={"output": {"success": True, "result": "ok"}}
+            )
+            mock_response.__aenter__.return_value = mock_response
+            mock_response.__aexit__.return_value = None
+
+            mock_session = AsyncMock()
+            mock_session.post.return_value = mock_response
+            mock_session.__aenter__.return_value = mock_session
+            mock_session.__aexit__.return_value = None
+            mock_session_class.return_value = mock_session
+
+            await self.executor.ExecuteFunction(request)
+
+            # Extract headers passed to session.post
+            call_args = mock_session.post.call_args
+            headers = call_args.kwargs.get("headers") or call_args[1].get("headers")
+            assert "User-Agent" in headers
+            assert "Runpod Flash/" in headers["User-Agent"]
+
+    @pytest.mark.asyncio
     async def test_execute_function_flash_local_execution_with_service_registry(self):
         """Test ExecuteFunction executes locally when ServiceRegistry identifies local function."""
         request = FunctionRequest(function_name="my_func")
