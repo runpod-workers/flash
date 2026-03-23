@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.0](https://github.com/runpod-workers/flash/compare/v1.3.0...v1.4.0) (2026-03-23)
+
+
+### Features
+
+* **http:** add Runpod Flash User-Agent to cross-endpoint requests ([#81](https://github.com/runpod-workers/flash/issues/81)) ([23782f8](https://github.com/runpod-workers/flash/commit/23782f81c1ab74bebab939def544cff239ff80e8))
+
 ## [1.3.0](https://github.com/runpod-workers/flash/compare/v1.2.0...v1.3.0) (2026-03-10)
 
 
