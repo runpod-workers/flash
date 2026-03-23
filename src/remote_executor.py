@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import List, Any, Optional
 import aiohttp
+from runpod_flash.core.utils.user_agent import get_user_agent
 from runpod_flash.protos.remote_execution import (
     FunctionRequest,
     FunctionResponse,
@@ -450,7 +451,10 @@ class RemoteExecutor(RemoteExecutorStub):
 
             # Make HTTP request to target endpoint
             api_key = os.getenv("RUNPOD_API_KEY")
-            headers = {"Content-Type": "application/json"}
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": get_user_agent(),
+            }
 
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
