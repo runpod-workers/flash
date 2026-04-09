@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.4.1](https://github.com/runpod-workers/flash/compare/v1.4.0...v1.4.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* **ci:** add manual workflow to bump runtime dependencies ([#84](https://github.com/runpod-workers/flash/issues/84)) ([a5dc87a](https://github.com/runpod-workers/flash/commit/a5dc87a2f165364d229b2ae82e248b6a96981f7e))
+* **deps:** bump runpod-flash 1.8.0 -&gt; 1.11.3, runpod 1.8.1 -&gt; 1.9.0 ([#86](https://github.com/runpod-workers/flash/issues/86)) ([f3ce708](https://github.com/runpod-workers/flash/commit/f3ce708ebb4674e65ad35c99be0f5763f71109a5))
+
 ## [1.4.0](https://github.com/runpod-workers/flash/compare/v1.3.0...v1.4.0) (2026-03-23)
 
 
