@@ -3,6 +3,10 @@
 # For non-3.12 targets we reinstall torch from the CUDA 12.8 wheel index
 # (~7 GB overhead) and repoint /usr/local/bin/python so the worker CMD picks
 # up the correct interpreter.
+# Base image provides Python 3.9-3.13 via deadsnakes; only 3.12 has torch
+# pre-installed. For 3.10 and 3.11 we reinstall torch from the CUDA 12.8
+# wheel index (~7 GB overhead) and repoint /usr/local/bin/python so the
+# worker CMD picks up the correct interpreter.
 FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
 
 # Target Python version for the worker runtime.
@@ -32,6 +36,9 @@ RUN python${PYTHON_VERSION} --version \
       python${PYTHON_VERSION} -c "import urllib.request; urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')" \
       && python${PYTHON_VERSION} /tmp/get-pip.py --no-cache-dir \
       && rm -f /tmp/get-pip.py \
+RUN python${PYTHON_VERSION} --version \
+ && if [ "${PYTHON_VERSION}" != "3.12" ]; then \
+      python${PYTHON_VERSION} -m ensurepip --upgrade \
       && python${PYTHON_VERSION} -m pip install --no-cache-dir \
            --index-url ${TORCH_INDEX_URL} \
            "torch==${TORCH_VERSION}" \

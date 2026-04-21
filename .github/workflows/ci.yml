@@ -152,6 +152,7 @@ jobs:
                       /opt/microsoft /opt/google \
                       /imagegeneration \
                       "$AGENT_TOOLSDIRECTORY"
+          rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
           docker system prune -af
           df -h
 
@@ -192,6 +193,7 @@ jobs:
                       /opt/microsoft /opt/google \
                       /imagegeneration \
                       "$AGENT_TOOLSDIRECTORY"
+          rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
           docker system prune -af
           df -h
 
