@@ -1,6 +1,11 @@
 ARG PYTHON_VERSION=3.12
 FROM python:${PYTHON_VERSION}-slim
 
+# Re-declare after FROM so the value is visible in this build stage, and
+# expose it at runtime for the worker's startup version check.
+ARG PYTHON_VERSION
+ENV FLASH_PYTHON_VERSION=${PYTHON_VERSION}
+
 WORKDIR /app
 
 # Prevent interactive prompts during package installation

@@ -1,12 +1,17 @@
 """Tests for version utilities."""
 
 import platform
+import sys
 from importlib.metadata import PackageNotFoundError
 from unittest.mock import patch
 
+import pytest
+
 from version import (
+    PythonVersionMismatchError,
     __version__,
     _get_version,
+    assert_python_version_matches_image,
     format_version_banner,
     get_flash_version,
     get_runpod_version,
@@ -76,3 +81,36 @@ class TestFormatVersionBanner:
             result
             == f"Starting Flash Worker unknown | Python {py} | runpod-flash unknown | runpod unknown"
         )
+
+
+class TestAssertPythonVersionMatchesImage:
+    """Tests for the AE-2827 Python version assertion."""
+
+    @pytest.fixture(autouse=True)
+    def _clear_env(self, monkeypatch):
+        monkeypatch.delenv("FLASH_PYTHON_VERSION", raising=False)
+
+    def test_noop_when_env_var_unset(self):
+        """Local dev and test harnesses don't set FLASH_PYTHON_VERSION; skip check."""
+        assert_python_version_matches_image()
+
+    def test_passes_when_declared_matches_interpreter(self, monkeypatch):
+        actual = f"{sys.version_info.major}.{sys.version_info.minor}"
+        monkeypatch.setenv("FLASH_PYTHON_VERSION", actual)
+        assert_python_version_matches_image()
+
+    def test_raises_on_mismatch(self, monkeypatch):
+        monkeypatch.setenv("FLASH_PYTHON_VERSION", "3.99")
+        with pytest.raises(PythonVersionMismatchError, match="interpreter mismatch"):
+            assert_python_version_matches_image()
+
+    def test_mismatch_error_message_includes_both_versions(self, monkeypatch):
+        declared = "3.99"
+        monkeypatch.setenv("FLASH_PYTHON_VERSION", declared)
+        with pytest.raises(PythonVersionMismatchError) as excinfo:
+            assert_python_version_matches_image()
+
+        actual = f"{sys.version_info.major}.{sys.version_info.minor}"
+        message = str(excinfo.value)
+        assert declared in message
+        assert actual in message
