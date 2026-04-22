@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.3](https://github.com/runpod-workers/flash/compare/v1.4.2...v1.4.3) (2026-04-22)
+
+
+### Bug Fixes
+
+* **deps:** bump runpod-flash 1.13.0 -&gt; 1.14.0 ([#90](https://github.com/runpod-workers/flash/issues/90)) ([f4ebebb](https://github.com/runpod-workers/flash/commit/f4ebebbdb5899ed0fadb94beba82c10b9b03a933))
+
 ## [1.4.2](https://github.com/runpod-workers/flash/compare/v1.4.1...v1.4.2) (2026-04-15)
 
 

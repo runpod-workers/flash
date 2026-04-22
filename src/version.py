@@ -3,7 +3,7 @@
 import platform
 from importlib.metadata import PackageNotFoundError, version
 
-__version__ = "1.4.2"  # x-release-please-version
+__version__ = "1.4.3"  # x-release-please-version
 
 
 def _get_version(package_name: str) -> str:
