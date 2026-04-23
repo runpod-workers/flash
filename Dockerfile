@@ -1,7 +1,8 @@
-# Base image provides Python 3.9-3.13 via deadsnakes; only 3.12 has torch
-# pre-installed. For 3.10 and 3.11 we reinstall torch from the CUDA 12.8
-# wheel index (~7 GB overhead) and repoint /usr/local/bin/python so the
-# worker CMD picks up the correct interpreter.
+# Base image (runpod/pytorch:ubuntu2204) ships Ubuntu 22.04 system python3.10
+# plus alt-Python interpreters for 3.11/3.12 with torch pre-installed on 3.12.
+# For non-3.12 targets we reinstall torch from the CUDA 12.8 wheel index
+# (~7 GB overhead) and repoint /usr/local/bin/python so the worker CMD picks
+# up the correct interpreter.
 FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
 
 # Target Python version for the worker runtime.
@@ -17,9 +18,15 @@ ENV FLASH_PYTHON_VERSION=${PYTHON_VERSION}
 # /usr/local/bin/python and python3 so downstream `python` invocations use it.
 # For 3.12 we keep the base image's python/torch untouched to avoid the
 # ~7 GB reinstall cost.
+#
+# pip bootstrap: Ubuntu 22.04's system python3.10 has ensurepip disabled by
+# Debian policy, so we install pip via get-pip.py (works for any interpreter
+# regardless of distro patching). urllib is stdlib, avoiding a curl dependency.
 RUN python${PYTHON_VERSION} --version \
  && if [ "${PYTHON_VERSION}" != "3.12" ]; then \
-      python${PYTHON_VERSION} -m ensurepip --upgrade \
+      python${PYTHON_VERSION} -c "import urllib.request; urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')" \
+      && python${PYTHON_VERSION} /tmp/get-pip.py --no-cache-dir \
+      && rm -f /tmp/get-pip.py \
       && python${PYTHON_VERSION} -m pip install --no-cache-dir \
            --index-url ${TORCH_INDEX_URL} \
            "torch==${TORCH_VERSION}" \
