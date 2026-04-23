@@ -38,7 +38,9 @@ RUN python${PYTHON_VERSION} --version \
       && rm -f /tmp/get-pip.py \
 RUN python${PYTHON_VERSION} --version \
  && if [ "${PYTHON_VERSION}" != "3.12" ]; then \
-      python${PYTHON_VERSION} -m ensurepip --upgrade \
+      python${PYTHON_VERSION} -c "import urllib.request; urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')" \
+      && python${PYTHON_VERSION} /tmp/get-pip.py --no-cache-dir \
+      && rm -f /tmp/get-pip.py \
       && python${PYTHON_VERSION} -m pip install --no-cache-dir \
            --index-url ${TORCH_INDEX_URL} \
            "torch==${TORCH_VERSION}" \
