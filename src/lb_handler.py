@@ -29,11 +29,15 @@ from fastapi import FastAPI
 
 from logger import setup_logging
 from unpack_volume import maybe_unpack
-from version import format_version_banner
+from version import assert_python_version_matches_image, format_version_banner
 
 # Initialize logging configuration
 setup_logging()
 logger = logging.getLogger(__name__)
+
+# Fail fast if the running interpreter disagrees with the image's advertised
+# version — catches mis-tagged images before user code runs.
+assert_python_version_matches_image()
 
 # Unpack Flash deployment artifacts if running in Flash mode
 # This is a no-op for Live Serverless and local development
