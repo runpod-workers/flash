@@ -144,7 +144,14 @@ jobs:
     steps:
       - name: Clear space
         run: |
-          rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/share/dotnet \
+                      /opt/ghc /usr/local/.ghcup \
+                      /usr/local/lib/android \
+                      /usr/local/share/boost \
+                      /opt/hostedtoolcache/CodeQL \
+                      /opt/microsoft /opt/google \
+                      /imagegeneration \
+                      "$AGENT_TOOLSDIRECTORY"
           docker system prune -af
           df -h
 
@@ -177,7 +184,14 @@ jobs:
     steps:
       - name: Clear space
         run: |
-          rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY"
+          sudo rm -rf /usr/share/dotnet \
+                      /opt/ghc /usr/local/.ghcup \
+                      /usr/local/lib/android \
+                      /usr/local/share/boost \
+                      /opt/hostedtoolcache/CodeQL \
+                      /opt/microsoft /opt/google \
+                      /imagegeneration \
+                      "$AGENT_TOOLSDIRECTORY"
           docker system prune -af
           df -h
 
