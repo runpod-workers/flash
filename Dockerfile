@@ -10,6 +10,19 @@
 FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
 
 # Target Python version for the worker runtime.
+# Native per-version GPU base. One Python interpreter per image, installed
+# directly into /usr/local/bin/python. No side-by-side, no symlink dance,
+# no 7 GB cold-start tax.
+#
+# - nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04 provides the CUDA + cuDNN
+#   runtime libraries needed by torch's cu128 wheels.
+# - On jammy (22.04), python3.10 ships from upstream Ubuntu (system Python);
+#   python3.11/3.12/3.13 come from the deadsnakes PPA. The same apt-get
+#   invocation below resolves both sources transparently.
+# - pip is bootstrapped via get-pip.py (urllib stdlib): the Ubuntu system
+#   python3.10 has ensurepip disabled by Debian policy, and deadsnakes
+#   interpreters do not ship pip by default. get-pip.py works for any
+#   interpreter regardless of distro patching.
 ARG PYTHON_VERSION=3.12
 ARG TORCH_VERSION=2.9.1+cu128
 # torchvision is NOT shipped by the runpod/pytorch base image (unlike torch and
@@ -19,8 +32,7 @@ ARG TORCH_VERSION=2.9.1+cu128
 ARG TORCHVISION_VERSION=0.24.1
 ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
 
-# Expose the target version to the running worker for startup validation.
-ENV FLASH_PYTHON_VERSION=${PYTHON_VERSION}
+FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
 
 # Validate the base image provides the requested interpreter and activate it.
 # For non-3.12 targets, install torch for the selected Python and repoint
@@ -47,46 +59,61 @@ RUN python${PYTHON_VERSION} --version \
       && ln -sf "$(which python${PYTHON_VERSION})" /usr/local/bin/python \
       && ln -sf "$(which python${PYTHON_VERSION})" /usr/local/bin/python3; \
     fi
+# Re-declare ARGs after FROM so they're visible in this build stage.
+ARG PYTHON_VERSION
+ARG TORCH_VERSION
+ARG TORCH_INDEX_URL
+
+ENV FLASH_PYTHON_VERSION=${PYTHON_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=Etc/UTC
+ENV HF_HUB_ENABLE_HF_TRANSFER=1
+ENV HF_HOME=/hf-cache
+
+# Install ONE Python natively. 3.10 from upstream Ubuntu (jammy ships it as
+# system Python); 3.11/3.12/3.13 from deadsnakes.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      software-properties-common ca-certificates curl gnupg \
+ && add-apt-repository -y ppa:deadsnakes/ppa \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python${PYTHON_VERSION} \
+      python${PYTHON_VERSION}-venv \
+      python${PYTHON_VERSION}-dev \
+      git \
+ && ln -sf "$(which python${PYTHON_VERSION})" /usr/local/bin/python \
+ && ln -sf "$(which python${PYTHON_VERSION})" /usr/local/bin/python3 \
+ && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Bootstrap pip via get-pip.py.
+RUN python -c "import urllib.request; urllib.request.urlretrieve('https://bootstrap.pypa.io/get-pip.py', '/tmp/get-pip.py')" \
+ && python /tmp/get-pip.py --no-cache-dir \
+ && rm -f /tmp/get-pip.py
+
+# Install torch natively for the active interpreter.
+RUN python -m pip install --no-cache-dir \
+      --index-url ${TORCH_INDEX_URL} \
+      "torch==${TORCH_VERSION}"
 
 WORKDIR /app
 
-# Prevent interactive prompts during package installation
-ENV DEBIAN_FRONTEND=noninteractive
-# Set timezone to avoid tzdata prompts
-ENV TZ=Etc/UTC
-
-# Enable HuggingFace transfer acceleration
-ENV HF_HUB_ENABLE_HF_TRANSFER=1
-# Relocate HuggingFace cache outside /root/.cache to exclude from volume sync
-ENV HF_HOME=/hf-cache
-
-# Configure APT cache to persist under /root/.cache for volume sync
+# Configure APT cache to persist under /root/.cache for volume sync.
 RUN mkdir -p /root/.cache/apt/archives/partial \
  && echo 'Dir::Cache "/root/.cache/apt";' > /etc/apt/apt.conf.d/01cache
 
-# Install system dependencies and uv
-# Note: build-essential not pre-installed to reduce image size (400MB savings)
-# Automatic detection will install it when needed (no manual action required)
-# Advanced: Users can pre-install via system_dependencies=["build-essential"]
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates git \
- && curl -LsSf https://astral.sh/uv/install.sh | sh \
+# Install uv for downstream dependency installation.
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
  && cp ~/.local/bin/uv /usr/local/bin/uv \
- && chmod +x /usr/local/bin/uv \
- && apt-get clean \
- && rm -rf /var/lib/apt/lists/*
+ && chmod +x /usr/local/bin/uv
 
-# Copy app code and install dependencies
-# Use --python to target the active interpreter (preserves torch in its site-packages)
+# Copy app code and install worker dependencies into the active interpreter.
 COPY README.md pyproject.toml uv.lock ./
 COPY src/ ./
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
  && uv pip install --python $(which python) --break-system-packages -r requirements.txt
 
-# Install numpy for the active Python version.
-# The runpod/pytorch image ships torch but not numpy. Flash build excludes numpy
-# from tarballs (BASE_IMAGE_PACKAGES) to save tarball space (~30 MB), so numpy
-# must be provided here in the base image.
+# Install numpy for the active Python (excluded from flash tarballs).
 RUN python -m pip install --no-cache-dir numpy
 
 # Install torchvision for the active Python version.
@@ -98,6 +125,7 @@ RUN python -m pip install --no-cache-dir \
       "torchvision==${TORCHVISION_VERSION}"
 
 # Verify torch, torchvision, numpy, and the expected Python version are available.
+# Verify torch, numpy, and the expected interpreter are wired correctly.
 RUN python -c "import sys; actual = f'{sys.version_info.major}.{sys.version_info.minor}'; expected = '${PYTHON_VERSION}'; assert actual == expected, f'Expected Python {expected}, got {actual}'; print(f'Python {actual} OK')" \
  && python -c "import torch; print(f'torch {torch.__version__} CUDA {torch.cuda.is_available()}')" \
  && python -c "import torchvision; print(f'torchvision {torchvision.__version__}')" \
