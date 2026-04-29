@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.5.0](https://github.com/runpod-workers/flash/compare/v1.4.4...v1.5.0) (2026-04-29)
+
+
+### Features
+
+* multi-Python worker images with startup version check (AE-2827) ([#89](https://github.com/runpod-workers/flash/issues/89)) ([fa6bab9](https://github.com/runpod-workers/flash/commit/fa6bab9e4cbde2adf6df93655d0da948a11c15b9))
+
+
+### Bug Fixes
+
+* **deps:** bump runpod-flash 1.15.0 -&gt; 1.16.0 ([#95](https://github.com/runpod-workers/flash/issues/95)) ([f29eadd](https://github.com/runpod-workers/flash/commit/f29eadd3dfbca6c1621caf6a37a6204dafec71ca))
+
 ## [1.4.4](https://github.com/runpod-workers/flash/compare/v1.4.3...v1.4.4) (2026-04-27)
 
 
