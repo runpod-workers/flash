@@ -75,7 +75,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -107,7 +107,7 @@ jobs:
     if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
     strategy:
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -140,7 +140,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - name: Clear space
         run: |
@@ -180,7 +180,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - name: Clear space
         run: |
@@ -270,6 +270,8 @@ jobs:
             is-default: false
           - python-version: "3.12"
             is-default: true
+          - python-version: "3.13"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
@@ -343,6 +345,8 @@ jobs:
             is-default: false
           - python-version: "3.12"
             is-default: true
+          - python-version: "3.13"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
@@ -416,6 +420,8 @@ jobs:
             is-default: false
           - python-version: "3.12"
             is-default: true
+          - python-version: "3.13"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
@@ -489,6 +495,8 @@ jobs:
             is-default: false
           - python-version: "3.12"
             is-default: true
+          - python-version: "3.13"
+            is-default: false
     steps:
       - name: Clear Space
         run: |
