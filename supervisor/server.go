@@ -30,9 +30,13 @@ func newServer(dispatch dispatchFunc) *http.Server {
 			writeError(w, "dispatch_error", err.Error())
 			return
 		}
+		payload, err := json.Marshal(map[string]json.RawMessage{"result": result})
+		if err != nil {
+			writeError(w, "encode_error", err.Error())
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		payload, _ := json.Marshal(map[string]json.RawMessage{"result": result})
 		_, _ = w.Write(payload)
 	})
 
@@ -44,10 +48,15 @@ func newServer(dispatch dispatchFunc) *http.Server {
 }
 
 func writeError(w http.ResponseWriter, typ, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusInternalServerError)
-	payload, _ := json.Marshal(map[string]map[string]string{
+	payload, err := json.Marshal(map[string]map[string]string{
 		"error": {"type": typ, "message": msg},
 	})
+	if err != nil {
+		// Marshalling a map[string]string literal cannot fail; this is unreachable
+		// but kept as a last-resort fallback so a 500 with a body is still sent.
+		payload = []byte(`{"error":{"type":"encode_error","message":"failed to encode error response"}}`)
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
 	_, _ = w.Write(payload)
 }
