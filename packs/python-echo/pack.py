@@ -16,6 +16,10 @@ def handle_line(line: str) -> str:
     except json.JSONDecodeError as exc:
         return json.dumps({"id": None, "error": {"type": "bad_request", "message": str(exc)}})
 
+    if not isinstance(req, dict):
+        message = f"expected a JSON object, got {type(req).__name__}"
+        return json.dumps({"id": None, "error": {"type": "bad_request", "message": message}})
+
     req_id = req.get("id")
     if req.get("method") != "invoke":
         return json.dumps(
@@ -32,7 +36,15 @@ def _serve(socket_path: str) -> None:
                 line = line.strip()
                 if not line:
                     continue
-                stream.write(handle_line(line) + "\n")
+                try:
+                    reply = handle_line(line)
+                except (
+                    Exception
+                ) as exc:  # belt-and-suspenders: never let one bad line kill the loop
+                    reply = json.dumps(
+                        {"id": None, "error": {"type": "internal_error", "message": str(exc)}}
+                    )
+                stream.write(reply + "\n")
                 stream.flush()
 
 

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from pack import handle_line
 
 
@@ -20,3 +22,12 @@ def test_unknown_method_returns_error():
     reply = json.loads(handle_line(req))
     assert reply["id"] == "2"
     assert reply["error"]["type"] == "unknown_method"
+
+
+@pytest.mark.parametrize("line", ["5", '"hi"', "[1,2]", "null", "true"])
+def test_non_dict_json_returns_bad_request(line):
+    reply = json.loads(handle_line(line))
+    assert reply == {
+        "id": None,
+        "error": {"type": "bad_request", "message": reply["error"]["message"]},
+    }
