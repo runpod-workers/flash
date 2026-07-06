@@ -51,13 +51,22 @@ func TestSupervisorEchoEndToEnd(t *testing.T) {
 	defer func() { _ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }()
 
 	// Wait for /ping.
+	healthy := false
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		resp, err := http.Get("http://127.0.0.1:8899/ping")
 		if err == nil && resp.StatusCode == 200 {
+			resp.Body.Close()
+			healthy = true
 			break
 		}
+		if resp != nil {
+			resp.Body.Close()
+		}
 		time.Sleep(200 * time.Millisecond)
+	}
+	if !healthy {
+		t.Fatalf("supervisor did not become healthy within 15s")
 	}
 
 	body := bytes.NewReader([]byte(`{"greeting":"hi"}`))
@@ -65,6 +74,7 @@ func TestSupervisorEchoEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("invoke: %v", err)
 	}
+	defer resp.Body.Close()
 	var out struct {
 		Result map[string]string `json:"result"`
 	}
