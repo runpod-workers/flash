@@ -39,6 +39,26 @@ func TestInvokeReturnsDispatchResult(t *testing.T) {
 	}
 }
 
+func TestWrongMethodReturns405(t *testing.T) {
+	srv := newServer(func(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
+		return json.RawMessage(`null`), nil
+	})
+
+	req := httptest.NewRequest(http.MethodPost, "/ping", nil)
+	rec := httptest.NewRecorder()
+	srv.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST /ping status = %d, want 405", rec.Code)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/invoke", nil)
+	rec = httptest.NewRecorder()
+	srv.Handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("GET /invoke status = %d, want 405", rec.Code)
+	}
+}
+
 func TestInvokeInvalidResultReturnsError(t *testing.T) {
 	srv := newServer(func(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
 		return json.RawMessage(`{not valid json`), nil

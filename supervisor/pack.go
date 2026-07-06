@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -32,11 +33,23 @@ type packError struct {
 }
 
 // newPackClient builds a dispatchFunc over an already-connected socket.
-// Sequential request/reply (one in flight); sufficient for the skeleton.
+//
+// Only one request may be in flight on the underlying connection at a time
+// (the pack protocol is a single-connection request/reply stream), so the
+// entire write+read critical section is serialized behind mu. Without this,
+// concurrent HTTP requests hitting /invoke would interleave writes to conn
+// and concurrently call ReadBytes on the shared bufio.Reader, corrupting
+// framing and cross-wiring replies between unrelated callers.
 func newPackClient(conn net.Conn) dispatchFunc {
-	var counter int64
+	var (
+		mu      sync.Mutex
+		counter int64
+	)
 	reader := bufio.NewReader(conn)
 	return func(ctx context.Context, input json.RawMessage) (json.RawMessage, error) {
+		mu.Lock()
+		defer mu.Unlock()
+
 		id := strconv.FormatInt(atomic.AddInt64(&counter, 1), 10)
 		req := packRequest{ID: id, Method: "invoke", Input: input}
 		line, err := json.Marshal(req)

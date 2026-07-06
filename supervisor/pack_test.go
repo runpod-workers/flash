@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -176,5 +178,58 @@ func TestDispatchRejectsReplyIDMismatch(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "mismatch") {
 		t.Fatalf("dispatch err = %v, want error mentioning mismatch", err)
+	}
+}
+
+// TestDispatchConcurrentSafe fires many concurrent dispatch() calls over a
+// single pack connection, the same access pattern net/http uses when
+// concurrent HTTP requests each call dispatch() directly from their own
+// per-request goroutine. Without serializing the write+read critical section
+// in newPackClient, concurrent writes to conn and concurrent ReadBytes calls
+// on the shared bufio.Reader would race and cross-wire replies between
+// unrelated callers. Run with -race to validate the fix.
+func TestDispatchConcurrentSafe(t *testing.T) {
+	dir := t.TempDir()
+	socketPath := filepath.Join(dir, "pack.sock")
+	ready := make(chan struct{})
+	go fakePack(t, socketPath, ready)
+	<-ready
+
+	conn, err := net.Dial("unix", socketPath)
+	if err != nil {
+		t.Fatalf("dial: %v", err)
+	}
+	defer conn.Close()
+
+	d := newPackClient(conn)
+
+	const numCalls = 50
+	var wg sync.WaitGroup
+	errs := make([]error, numCalls)
+	outs := make([]string, numCalls)
+	for i := 0; i < numCalls; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			input := json.RawMessage(fmt.Sprintf(`{"n":%d}`, i))
+			out, err := d(ctx, input)
+			errs[i] = err
+			if err == nil {
+				outs[i] = string(out)
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	for i := 0; i < numCalls; i++ {
+		if errs[i] != nil {
+			t.Fatalf("call %d: dispatch err = %v, want nil", i, errs[i])
+		}
+		want := fmt.Sprintf(`{"n":%d}`, i)
+		if outs[i] != want {
+			t.Fatalf("call %d: dispatch out = %s, want %s (cross-wired reply)", i, outs[i], want)
+		}
 	}
 }
