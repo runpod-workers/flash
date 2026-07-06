@@ -43,16 +43,52 @@ func newPackClient(conn net.Conn) dispatchFunc {
 		if err != nil {
 			return nil, err
 		}
+
+		// Honor ctx deadline on the socket I/O so a hung pack cannot block
+		// forever. Clear the deadline afterward since the conn is reused
+		// across sequential requests.
+		if deadline, ok := ctx.Deadline(); ok {
+			_ = conn.SetDeadline(deadline)
+			defer conn.SetDeadline(time.Time{})
+		}
+
 		if _, err := conn.Write(append(line, '\n')); err != nil {
 			return nil, err
 		}
-		replyLine, err := reader.ReadBytes('\n')
-		if err != nil {
-			return nil, err
+
+		// Read on a goroutine so we can also react to ctx cancellation
+		// (e.g. cancel with no deadline) rather than only a fixed deadline.
+		type readResult struct {
+			line []byte
+			err  error
 		}
+		resultCh := make(chan readResult, 1)
+		go func() {
+			replyLine, rerr := reader.ReadBytes('\n')
+			resultCh <- readResult{line: replyLine, err: rerr}
+		}()
+
+		var replyLine []byte
+		select {
+		case res := <-resultCh:
+			if res.err != nil {
+				return nil, res.err
+			}
+			replyLine = res.line
+		case <-ctx.Done():
+			// Force the blocked read to unblock by closing the connection's
+			// read side via a deadline in the past.
+			_ = conn.SetDeadline(time.Now())
+			<-resultCh
+			return nil, fmt.Errorf("pack dispatch: %w", ctx.Err())
+		}
+
 		var reply packReply
 		if err := json.Unmarshal(replyLine, &reply); err != nil {
 			return nil, err
+		}
+		if reply.ID != id {
+			return nil, fmt.Errorf("pack reply id mismatch: got %q want %q", reply.ID, id)
 		}
 		if reply.Error != nil {
 			return nil, fmt.Errorf("%s: %s", reply.Error.Type, reply.Error.Message)
@@ -64,6 +100,10 @@ func newPackClient(conn net.Conn) dispatchFunc {
 // startPack spawns the pack subprocess, waits for it to connect, and returns
 // a dispatchFunc plus a cleanup closer.
 func startPack(ctx context.Context, packCmd []string) (dispatchFunc, func() error, error) {
+	if len(packCmd) == 0 {
+		return nil, nil, fmt.Errorf("packCmd is empty")
+	}
+
 	dir, err := os.MkdirTemp("", "flash-pack-")
 	if err != nil {
 		return nil, nil, err
@@ -72,6 +112,7 @@ func startPack(ctx context.Context, packCmd []string) (dispatchFunc, func() erro
 
 	ln, err := net.Listen("unix", socketPath)
 	if err != nil {
+		_ = os.RemoveAll(dir)
 		return nil, nil, err
 	}
 
@@ -81,6 +122,7 @@ func startPack(ctx context.Context, packCmd []string) (dispatchFunc, func() erro
 	cmd.Stderr = os.Stderr
 	if err := cmd.Start(); err != nil {
 		_ = ln.Close()
+		_ = os.RemoveAll(dir)
 		return nil, nil, err
 	}
 
@@ -99,12 +141,22 @@ func startPack(ctx context.Context, packCmd []string) (dispatchFunc, func() erro
 		cleanup := func() error {
 			_ = conn.Close()
 			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
 			return os.RemoveAll(dir)
 		}
 		return dispatch, cleanup, nil
 	case <-time.After(30 * time.Second):
 		_ = ln.Close()
+		// Drain a conn that may have raced in right as the listener closed,
+		// so we don't leak its fd.
+		select {
+		case conn := <-acceptCh:
+			_ = conn.Close()
+		default:
+		}
 		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		_ = os.RemoveAll(dir)
 		return nil, nil, fmt.Errorf("pack did not connect within 30s")
 	}
 }
