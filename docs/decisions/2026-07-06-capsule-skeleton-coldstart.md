@@ -20,41 +20,58 @@ which serves `/ping` (LB health) and `/invoke`.
 
 ## What we observed
 
-**Deploy path: works.** The SDK path is proven end-to-end for provisioning:
+Two runs. The first (endpoint `h4weyjww9j9okj` / `capsule-spike-59767b96`)
+proved the deploy path but lost its latency numbers to a probe stdout-buffering
++ timeout-kill bug. A second, clean, controller-driven run (endpoint
+`jcayit2o58b3bm` / `capsule-probe-rerun1`, timings written to a file, teardown
+via a shell trap) captured the measurement.
 
-- `PodTemplate(name=..., imageName="python:3.11-slim", dockerArgs=<capsule cmd>, containerDiskInGb=10)`
-  passed to `CpuLiveLoadBalancer(..., template=template)` persisted the
-  `dockerArgs` through `_configure_existing_template()` and `saveTemplate`
-  (which allow-lists the `dockerArgs` field), and `saveEndpoint` accepted it.
-- The endpoint was created (id `h4weyjww9j9okj`, name `capsule-spike-59767b96`)
-  and a worker started (independently confirmed running).
+**Deploy path: works.** `PodTemplate(name=..., imageName="python:3.11-slim",
+dockerArgs=<capsule cmd>, containerDiskInGb=10)` passed to
+`CpuLiveLoadBalancer(..., template=template)` persists `dockerArgs` through
+`_configure_existing_template()` and `saveTemplate` (which allow-lists the
+`dockerArgs` field); `saveEndpoint` accepted it on both runs.
 
-**Latency numbers: not captured.** The measurement harness buffered stdout to a
-pipe and was killed at its wall-clock timeout before the buffer flushed and
-before a healthy `/ping` was recorded; no `/ping` or `/invoke` result was
-captured in the ~3.5 min the endpoint was live (deployed 14:42:36, torn down
-14:46:10). A clean re-run with unbuffered output would be required to record the
-cold-start and first-invoke figures — this was deliberately **not** re-run to
-avoid provisioning a second paid endpoint after the teardown directive.
+**Capsule runs on real Runpod.** On the clean run the injected supervisor came
+up and served the LB health check, and a job round-tripped
+HTTP → supervisor `/invoke` → Unix-socket IPC → Python pack → back, with the
+payload returned intact.
 
 | Metric | Result |
 |--------|--------|
-| Cold-start (container start → first healthy `/ping`) | not captured (harness buffering + kill) |
-| First `/invoke` latency | not captured |
+| Cold-start (deploy → first healthy `/ping`) | **39.4 s** |
+| First `/invoke` round-trip | **720 ms** |
 | Injection mechanism (dockerArgs → saveTemplate → deploy) | verified working |
+| Capsule serves on real Runpod (supervisor + pack) | verified (echo round-tripped) |
+
+Note: the probe's `/invoke` body was the IPC-framed `{id,method,input}` envelope
+rather than a bare job input, so the pack correctly echoed that whole object
+back nested under `result.input` — a probe payload-shape artifact, **not** a
+capsule defect. The data returned intact, which is the round-trip proof.
+
+The 39.4 s is dominated by Runpod worker provisioning + base-image pull, not by
+the capsule download itself (supervisor 6.2 MB + pack 6.6 KB is a small fraction
+of that time). This is consistent with previously observed Runpod live-provision
+cold starts (~40 s).
 
 ## Teardown
 
-- `flash undeploy capsule-spike-59767b96 --force` → "deleted capsule-spike-59767b96".
-- Account-level check via the `runpod` SDK (`runpod.get_endpoints()`): no
-  `capsule-*`/`spike-*` endpoint remains. No paid endpoint left running.
+- Run 1: `flash undeploy capsule-spike-59767b96 --force` → "deleted".
+- Run 2: shell-trap `flash undeploy capsule-probe-rerun1 --force` →
+  `CpuLiveLoadBalancer:jcayit2o58b3bm successfully undeployed` → "✓ deleted".
+- Account-level check via `runpod.get_endpoints()` after each run: **no
+  `capsule-*`/`probe-*`/`spike-*` endpoint remains.** No paid endpoint left
+  running.
 
 ## Verdict
 
-**Inconclusive on latency; the inject-at-start injection+deploy mechanism itself
-is viable.** The `dockerArgs` injection contract is confirmed on real Runpod
-infrastructure — a plain `python:3.11-slim` image plus the capsule command
-deploys and boots a worker. The cold-start budget question (spec §8 risk 1 —
-does download-at-start meet a viable budget, or does it argue for the
-OCI-overlay backend?) remains **open** and needs one clean, unbuffered
-measurement run before the inject-vs-overlay decision can be made on data.
+**Inject-at-start is functionally viable and the injection overhead is small,
+but total serverless cold start (~40 s) is provisioning-dominated.** The
+`dockerArgs` injection contract works on real Runpod: a plain
+`python:3.11-slim` image plus the capsule command deploys, boots the supervisor,
+and serves jobs. For latency-sensitive workloads the ~40 s cold start argues for
+keeping workers warm (`workersMin>=1`) and/or the OCI-overlay backend (spec §3
+backend B) that removes even the small download-at-start step — but the download
+itself is not the bottleneck at this pack size. Larger packs (CUDA-flavored
+Python, spec §8 risk 1) still need their own measurement before the
+inject-vs-overlay decision generalizes.
