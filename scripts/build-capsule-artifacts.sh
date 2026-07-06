@@ -11,7 +11,9 @@ echo "Building supervisor (static linux/amd64)..."
 ( cd "$REPO_ROOT/supervisor" && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o "$DIST/supervisor" . )
 
 echo "Packaging echo pack..."
-tar czf "$DIST/python-echo-pack.tar.gz" -C "$REPO_ROOT/packs/python-echo" .
+tar czf "$DIST/python-echo-pack.tar.gz" \
+  --exclude='test_*.py' --exclude='__pycache__' --exclude='.coverage*' \
+  -C "$REPO_ROOT/packs/python-echo" .
 
 echo ""
 echo "Artifacts:"
