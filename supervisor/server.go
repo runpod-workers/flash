@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 )
 
 type dispatchFunc func(ctx context.Context, input json.RawMessage) (json.RawMessage, error)
@@ -13,13 +14,13 @@ type dispatchFunc func(ctx context.Context, input json.RawMessage) (json.RawMess
 func newServer(dispatch dispatchFunc) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"status":"healthy"}`))
 	})
 
-	mux.HandleFunc("/invoke", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("POST /invoke", func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			writeError(w, "read_error", err.Error())
@@ -44,7 +45,11 @@ func newServer(dispatch dispatchFunc) *http.Server {
 	if port == "" {
 		port = "80"
 	}
-	return &http.Server{Addr: ":" + port, Handler: mux}
+	return &http.Server{
+		Addr:              ":" + port,
+		Handler:           mux,
+		ReadHeaderTimeout: 10 * time.Second,
+	}
 }
 
 func writeError(w http.ResponseWriter, typ, msg string) {
