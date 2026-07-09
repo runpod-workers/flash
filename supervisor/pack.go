@@ -2,14 +2,17 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -130,9 +133,10 @@ func startPack(ctx context.Context, packCmd []string) (dispatchFunc, func() erro
 	}
 
 	args := append(append([]string{}, packCmd[1:]...), "--socket", socketPath)
+	var stderrBuf bytes.Buffer
 	cmd := exec.CommandContext(ctx, packCmd[0], args...)
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = io.MultiWriter(os.Stderr, &stderrBuf)
 	if err := cmd.Start(); err != nil {
 		_ = ln.Close()
 		_ = os.RemoveAll(dir)
@@ -147,6 +151,17 @@ func startPack(ctx context.Context, packCmd []string) (dispatchFunc, func() erro
 		}
 	}()
 
+	waitCh := make(chan error, 1)
+	go func() { waitCh <- cmd.Wait() }()
+
+	drainAccept := func() {
+		select {
+		case c := <-acceptCh:
+			_ = c.Close()
+		default:
+		}
+	}
+
 	select {
 	case conn := <-acceptCh:
 		_ = ln.Close()
@@ -154,21 +169,25 @@ func startPack(ctx context.Context, packCmd []string) (dispatchFunc, func() erro
 		cleanup := func() error {
 			_ = conn.Close()
 			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
+			<-waitCh // reap the Wait goroutine
 			return os.RemoveAll(dir)
 		}
 		return dispatch, cleanup, nil
+	case werr := <-waitCh:
+		_ = ln.Close()
+		drainAccept()
+		_ = os.RemoveAll(dir)
+		tail := stderrBuf.String()
+		if len(tail) > 500 {
+			tail = tail[len(tail)-500:]
+		}
+		return nil, nil, fmt.Errorf("pack exited before connecting (%v): %s",
+			werr, strings.TrimSpace(tail))
 	case <-time.After(30 * time.Second):
 		_ = ln.Close()
-		// Drain a conn that may have raced in right as the listener closed,
-		// so we don't leak its fd.
-		select {
-		case conn := <-acceptCh:
-			_ = conn.Close()
-		default:
-		}
+		drainAccept()
 		_ = cmd.Process.Kill()
-		_ = cmd.Wait()
+		<-waitCh
 		_ = os.RemoveAll(dir)
 		return nil, nil, fmt.Errorf("pack did not connect within 30s")
 	}
