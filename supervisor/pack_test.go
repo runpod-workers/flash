@@ -38,6 +38,26 @@ func fakePack(t *testing.T, socketPath string, ready chan<- struct{}) {
 	}
 }
 
+func TestStartPackSurfacesEarlyExit(t *testing.T) {
+	// A "pack" that prints to stderr and exits 3 without ever connecting.
+	start := time.Now()
+	_, _, err := startPack(context.Background(),
+		[]string{"sh", "-c", "echo boom-msg >&2; exit 3"})
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected error when pack exits before connecting, got nil")
+	}
+	if elapsed > 10*time.Second {
+		t.Fatalf("startPack took %v; should surface early exit promptly, not wait 30s", elapsed)
+	}
+	if !strings.Contains(err.Error(), "exited before connecting") {
+		t.Fatalf("error = %q, want it to mention early exit", err.Error())
+	}
+	if !strings.Contains(err.Error(), "boom-msg") {
+		t.Fatalf("error = %q, want it to include the pack's stderr", err.Error())
+	}
+}
+
 func TestDispatchRoundTrips(t *testing.T) {
 	dir := t.TempDir()
 	socketPath := filepath.Join(dir, "pack.sock")
