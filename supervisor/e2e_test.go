@@ -9,19 +9,28 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
 )
 
 func TestSupervisorEchoEndToEnd(t *testing.T) {
-	packPath := os.Getenv("FLASH_ECHO_PACK_PATH")
-	if packPath == "" {
-		t.Skip("set FLASH_ECHO_PACK_PATH to packs/python-echo/pack.py")
+	packDir := os.Getenv("FLASH_ECHO_PACK_DIR")
+	if packDir == "" {
+		t.Skip("set FLASH_ECHO_PACK_DIR to the packs/python-echo directory")
 	}
+	// Accept whatever python3 the host has, so the seam test isn't gated on
+	// the host having a 3.10-3.13 interpreter.
+	verOut, err := exec.Command("python3", "-c",
+		"import sys;print('%d.%d'%sys.version_info[:2])").Output()
+	if err != nil {
+		t.Skipf("no python3 on host: %v", err)
+	}
+	hostVer := strings.TrimSpace(string(verOut))
 	os.Setenv("FLASH_SUPERVISOR_PORT", "8899")
-	// python3, not python: this machine only has python3 on PATH.
-	os.Setenv("FLASH_PACK_CMD", "python3 "+packPath)
+	os.Setenv("FLASH_PACK_DIR", packDir)
+	os.Setenv("FLASH_SUPPORTED_PYTHONS", hostVer)
 
 	// Build the supervisor binary directly rather than "go run .": "go run"
 	// spawns a compiled binary as a grandchild, and that grandchild in turn

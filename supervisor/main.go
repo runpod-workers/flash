@@ -4,17 +4,18 @@ import (
 	"context"
 	"log"
 	"os"
-	"strings"
+	"path/filepath"
 )
 
 func main() {
-	// FLASH_PACK_CMD: space-separated command that starts the language pack,
-	// e.g. "python /opt/flash/pack/pack.py". The supervisor appends --socket.
-	packCmdRaw := os.Getenv("FLASH_PACK_CMD")
-	if packCmdRaw == "" {
-		log.Fatal("FLASH_PACK_CMD not set")
+	// FLASH_PACK_DIR holds the extracted pack (default /opt/flash/pack). The
+	// supervisor execs the pack's convention entrypoint `run` and appends
+	// --socket; all language-specific launch logic lives in that script.
+	packDir := os.Getenv("FLASH_PACK_DIR")
+	if packDir == "" {
+		packDir = "/opt/flash/pack"
 	}
-	packCmd := strings.Fields(packCmdRaw)
+	packCmd := []string{filepath.Join(packDir, "run")}
 
 	ctx := context.Background()
 	dispatch, cleanup, err := startPack(ctx, packCmd)
