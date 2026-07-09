@@ -1,0 +1,37 @@
+#!/bin/sh
+# Flash Capsule pack entrypoint. The supervisor execs this as `run --socket <path>`.
+# Owns all Python-specific launch logic so the supervisor stays language-agnostic:
+# discover a supported image Python, validate its version, else fail clearly.
+set -e
+
+here="$(cd "$(dirname "$0")" && pwd)"
+supported="${FLASH_SUPPORTED_PYTHONS:-3.10 3.11 3.12 3.13}"
+
+# 1. Discover interpreter: FLASH_PYTHON override, then python3, then python.
+py=""
+if [ -n "${FLASH_PYTHON:-}" ] && command -v "$FLASH_PYTHON" >/dev/null 2>&1; then
+    py="$FLASH_PYTHON"
+elif command -v python3 >/dev/null 2>&1; then
+    py="python3"
+elif command -v python >/dev/null 2>&1; then
+    py="python"
+fi
+
+if [ -z "$py" ]; then
+    echo "flash-capsule: no Python found in this image. Flash requires one of [$supported] on PATH; set FLASH_PYTHON to point at one (e.g. a conda env's python)." >&2
+    exit 3
+fi
+
+# 2. Validate version.
+ver="$("$py" -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo unknown)"
+ok=0
+for v in $supported; do
+    [ "$ver" = "$v" ] && ok=1 && break
+done
+if [ "$ok" -ne 1 ]; then
+    echo "flash-capsule: Python $ver is not supported. Flash supports [$supported]. Found $py ($ver)." >&2
+    exit 4
+fi
+
+# 3. Launch the pack under the validated interpreter (forwards --socket ...).
+exec "$py" "$here/pack.py" "$@"

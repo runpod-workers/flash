@@ -12,7 +12,7 @@ echo "Building supervisor (static linux/amd64)..."
 
 echo "Packaging echo pack..."
 tar czf "$DIST/python-echo-pack.tar.gz" \
-  --exclude='test_*.py' --exclude='__pycache__' --exclude='.coverage*' \
+  --exclude='test_*' --exclude='__pycache__' --exclude='.coverage*' \
   -C "$REPO_ROOT/packs/python-echo" .
 
 echo ""
