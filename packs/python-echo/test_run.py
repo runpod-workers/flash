@@ -1,9 +1,12 @@
 """Offline tests for the pack `run` entrypoint (Python discovery + validation).
 
-A stub `python3` handles both calls `run` makes: the version probe
-(`python -c ...`) prints a configurable version; any other invocation
-(the `pack.py` launch) records its argv and exits 0, so pack.py never
-actually runs.
+Each stub handles both calls `run` makes: the version probe (`python -c
+...`) prints a *version baked into the stub itself* (not read from a
+shared env var), and any other invocation (the `pack.py` launch) records
+its argv into a marker file and exits 0, so pack.py never actually runs.
+Baking the version into each stub lets a single test give the PATH
+`python3` stub and the `FLASH_PYTHON` stub different, independently
+verifiable versions.
 """
 
 import subprocess
@@ -11,18 +14,17 @@ from pathlib import Path
 
 RUN = Path(__file__).parent / "run"
 
-STUB = """#!/bin/sh
+STUB_TEMPLATE = """#!/bin/sh
 case "$1" in
-  -c) echo "$STUB_PYVER" ;;
-  *)  printf '%s ' "$@" > "$STUB_MARKER"; exit 0 ;;
+  -c) echo "{version}" ;;
+  *)  printf '%s ' "$@" > "{marker}"; exit 0 ;;
 esac
 """
 
 
-def _make_stub(dir_: Path, name: str, version: str, marker: Path) -> None:
-    p = dir_ / name
-    p.write_text(STUB)
-    p.chmod(0o755)
+def _write_stub(path: Path, version: str, marker: Path) -> None:
+    path.write_text(STUB_TEMPLATE.format(version=version, marker=marker))
+    path.chmod(0o755)
 
 
 def _run(
@@ -34,15 +36,12 @@ def _run(
     env = {
         "PATH": str(bindir) if path_has_python else "/nonexistent",
         "FLASH_SUPPORTED_PYTHONS": supported,
-        "STUB_PYVER": pyver,
-        "STUB_MARKER": str(marker),
     }
     if path_has_python:
-        _make_stub(bindir, "python3", pyver, marker)
+        _write_stub(bindir / "python3", pyver, marker)
     if flash_python is not None:
-        fp = tmp_path / "mypy"
-        fp.write_text(STUB)
-        fp.chmod(0o755)
+        fp = tmp_path / "flash_python_stub"
+        _write_stub(fp, flash_python, marker)
         env["FLASH_PYTHON"] = str(fp)
     proc = subprocess.run(
         [str(RUN), "--socket", "/tmp/x.sock"],
@@ -75,22 +74,25 @@ def test_no_python_exits_3_with_message(tmp_path):
 
 
 def test_flash_python_override_is_used(tmp_path):
+    # PATH python3 reports an UNSUPPORTED version; FLASH_PYTHON reports a
+    # SUPPORTED, distinct version. If `run` ignored FLASH_PYTHON and used
+    # PATH python3 instead, it would see "3.9" and exit 4 (unsupported),
+    # so this test can only pass if the override is actually honored.
+    proc, marker = _run(tmp_path, pyver="3.9", flash_python="3.12")
+    assert proc.returncode == 0, proc.stderr
+    assert marker.exists() and "pack.py" in marker.read_text()
+
+
+def test_python_fallback_when_no_python3(tmp_path):
+    # No `python3` on PATH, but a `python` binary (supported version) is
+    # present; `run` should fall back to discovering `python`.
     bindir = tmp_path / "bin"
     bindir.mkdir()
     marker = tmp_path / "marker"
-    # PATH python3 reports unsupported 3.9
-    (bindir / "python3").write_text(STUB)
-    (bindir / "python3").chmod(0o755)
-    # FLASH_PYTHON points at a stub reporting supported 3.12
-    fp = tmp_path / "mypy"
-    fp.write_text(STUB)
-    fp.chmod(0o755)
+    _write_stub(bindir / "python", "3.11", marker)
     env = {
         "PATH": str(bindir),
         "FLASH_SUPPORTED_PYTHONS": "3.10 3.11 3.12 3.13",
-        "STUB_MARKER": str(marker),
-        "STUB_PYVER": "3.12",  # both stubs read this; override is what we assert gets used
-        "FLASH_PYTHON": str(fp),
     }
     proc = subprocess.run(
         [str(RUN), "--socket", "/tmp/x.sock"], env=env, capture_output=True, text=True
