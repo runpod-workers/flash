@@ -8,6 +8,11 @@ FROM runpod/pytorch:1.0.3-cu1281-torch291-ubuntu2204
 # Target Python version for the worker runtime.
 ARG PYTHON_VERSION=3.12
 ARG TORCH_VERSION=2.9.1+cu128
+# torchvision is NOT shipped by the runpod/pytorch base image (unlike torch and
+# torchaudio) and is auto-excluded from Flash build tarballs, so it must be
+# installed here. Pin to the release paired with TORCH_VERSION (torch 2.9.1 ->
+# torchvision 0.24.1); update both together on a torch bump. See SLS-377.
+ARG TORCHVISION_VERSION=0.24.1
 ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
 
 # Expose the target version to the running worker for startup validation.
@@ -75,9 +80,18 @@ RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt 
 # must be provided here in the base image.
 RUN python -m pip install --no-cache-dir numpy
 
-# Verify torch, numpy, and the expected Python version are available.
+# Install torchvision for the active Python version.
+# The runpod/pytorch base ships torch/torchaudio but NOT torchvision, and Flash
+# build auto-excludes torchvision from tarballs, so it must be provided here.
+# Use the CUDA wheel index to stay aligned with the base image torch build.
+RUN python -m pip install --no-cache-dir \
+      --index-url ${TORCH_INDEX_URL} \
+      "torchvision==${TORCHVISION_VERSION}"
+
+# Verify torch, torchvision, numpy, and the expected Python version are available.
 RUN python -c "import sys; actual = f'{sys.version_info.major}.{sys.version_info.minor}'; expected = '${PYTHON_VERSION}'; assert actual == expected, f'Expected Python {expected}, got {actual}'; print(f'Python {actual} OK')" \
  && python -c "import torch; print(f'torch {torch.__version__} CUDA {torch.cuda.is_available()}')" \
+ && python -c "import torchvision; print(f'torchvision {torchvision.__version__}')" \
  && python -c "import numpy; print(f'numpy {numpy.__version__}')"
 
 CMD ["python", "handler.py"]
