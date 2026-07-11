@@ -14,7 +14,11 @@ dependencies = [
     "huggingface_hub>=0.32.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
-    "runpod-flash>=1.8.0",
+    # TEMPORARY (SLS-360 coordinated release): this worker uses
+    # runpod_flash.runtime.module_loader, which is not in a published runpod-flash
+    # yet. Pin to the flash branch until runpod/flash#352 is merged and released,
+    # then REVERT to a released constraint (e.g. "runpod-flash>=1.18.0").
+    "runpod-flash @ git+https://github.com/runpod/flash.git@deanquinanola/sls-360-local-module-bundling",
 ]
 
 [dependency-groups]
