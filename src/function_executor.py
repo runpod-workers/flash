@@ -42,7 +42,7 @@ class FunctionExecutor:
                 # at def-time), so the materialized path must stay live until
                 # the function has actually run.
                 namespace: Dict[str, Any] = {}
-                with materialized_modules(request.modules or {}):
+                with materialized_modules(getattr(request, "modules", {}) or {}):
                     if request.function_code:
                         exec(request.function_code, namespace)
 

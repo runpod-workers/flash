@@ -226,10 +226,14 @@ class TestModuleImports:
         """Test that a shipped local module can be imported and used."""
         request = FunctionRequest(
             function_name="handler",
-            function_code="def handler():\n    import utils\n    return utils.x()\n",
+            function_code=(
+                "def handler():\n"
+                "    import flash_shipped_greeting\n"
+                "    return flash_shipped_greeting.x()\n"
+            ),
             args=[],
             kwargs={},
-            modules={"utils.py": "def x():\n    return 7\n"},
+            modules={"flash_shipped_greeting.py": "def x():\n    return 7\n"},
         )
 
         response = await self.executor.execute(request)
