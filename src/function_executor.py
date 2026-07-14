@@ -6,6 +6,7 @@ from contextlib import redirect_stdout, redirect_stderr
 from typing import Dict, Any
 
 from runpod_flash.protos.remote_execution import FunctionRequest, FunctionResponse
+from runpod_flash.runtime.module_loader import materialized_modules
 from serialization_utils import SerializationUtils
 
 
@@ -34,30 +35,36 @@ class FunctionExecutor:
             logger.addHandler(log_handler)
 
             try:
-                # Execute function code in namespace
+                # Execute function code in namespace, with any shipped local
+                # modules importable on sys.path for the duration of the exec
+                # AND the subsequent call. Local modules are typically imported
+                # lazily inside the function body (executed at call time, not
+                # at def-time), so the materialized path must stay live until
+                # the function has actually run.
                 namespace: Dict[str, Any] = {}
-                if request.function_code:
-                    exec(request.function_code, namespace)
+                with materialized_modules(getattr(request, "modules", {}) or {}):
+                    if request.function_code:
+                        exec(request.function_code, namespace)
 
-                if request.function_name not in namespace:
-                    return FunctionResponse(
-                        success=False,
-                        result=f"Function '{request.function_name}' not found in the provided code",
-                    )
+                    if request.function_name not in namespace:
+                        return FunctionResponse(
+                            success=False,
+                            result=f"Function '{request.function_name}' not found in the provided code",
+                        )
 
-                func = namespace[request.function_name]
+                    func = namespace[request.function_name]
 
-                # Deserialize arguments
-                args = SerializationUtils.deserialize_args(request.args)
-                kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
+                    # Deserialize arguments
+                    args = SerializationUtils.deserialize_args(request.args)
+                    kwargs = SerializationUtils.deserialize_kwargs(request.kwargs)
 
-                # Execute the function (handle both sync and async)
-                if inspect.iscoroutinefunction(func):
-                    # Async function - await directly
-                    result = await func(*args, **kwargs)
-                else:
-                    # Sync function - call directly
-                    result = func(*args, **kwargs)
+                    # Execute the function (handle both sync and async)
+                    if inspect.iscoroutinefunction(func):
+                        # Async function - await directly
+                        result = await func(*args, **kwargs)
+                    else:
+                        # Sync function - call directly
+                        result = func(*args, **kwargs)
 
             except Exception as e:
                 # Combine output streams
