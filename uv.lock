@@ -2557,8 +2557,8 @@ wheels = [
 
 [[package]]
 name = "runpod"
-version = "1.10.2.dev1"
-source = { git = "https://github.com/runpod/runpod-python?rev=main#08e07cb5dded275b1bab0451940433fe2a1c8244" }
+version = "1.10.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp", extra = ["speedups"] },
     { name = "aiohttp-retry" },
@@ -2580,11 +2580,15 @@ dependencies = [
     { name = "urllib3" },
     { name = "watchdog" },
 ]
+sdist = { url = "https://files.pythonhosted.org/packages/69/fd/62538e5497c4bc800bd62b0270de43f1d3d054eb58b9696ca548850da166/runpod-1.10.1.tar.gz", hash = "sha256:6d0ad5cdc36f5b7375968861f6973be82c923eb6e8c20bc658c48f398304c7b8", size = 580786 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cb/87/38f6ad5d15b0d5d843a1a87d89364c07b10c98a3542e604bf5e6259ace8a/runpod-1.10.1-py3-none-any.whl", hash = "sha256:1c12e32107cfd9f38c5d9c3d3f9c7f68fa7969bf99ea35f2fdc1fc03b174b90f", size = 334368 },
+]
 
 [[package]]
 name = "runpod-flash"
-version = "1.18.0"
-source = { git = "https://github.com/runpod/flash.git?rev=deanquinanola%2Fsls-360-local-module-bundling#0c8c90cefcddba3324a96a8474eb9986b174837d" }
+version = "1.19.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
     { name = "pathspec" },
@@ -2595,6 +2599,10 @@ dependencies = [
     { name = "runpod" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a7/15/12b46f2f45391095683f070cab73a8ff0f49aa015b2d9466d3d50487926f/runpod_flash-1.19.0.tar.gz", hash = "sha256:70344dd7e2939a901a3c1c6eefe1a678a2f5533cb17f4b1239692bc278148952", size = 211122 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/7e/00665d3b0c47f52ffd43499a8ba7d5cd3adb5f0d74a04e8b094b84abe51d/runpod_flash-1.19.0-py3-none-any.whl", hash = "sha256:d7fc371e368be5504476a7ad915c0da965f0a0905c4a100017160168108020f4", size = 248661 },
 ]
 
 [[package]]
@@ -3062,7 +3070,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.4" },
     { name = "requests", specifier = ">=2.25.0" },
     { name = "runpod" },
-    { name = "runpod-flash", git = "https://github.com/runpod/flash.git?rev=deanquinanola%2Fsls-360-local-module-bundling" },
+    { name = "runpod-flash", specifier = ">=1.19.0" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34.0" },
 ]
 
