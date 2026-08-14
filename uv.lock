@@ -3056,6 +3056,7 @@ dev = [
     { name = "pytest-xdist" },
     { name = "rich" },
     { name = "ruff" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typer" },
     { name = "types-requests" },
 ]
@@ -3085,6 +3086,7 @@ dev = [
     { name = "pytest-xdist", specifier = ">=3.5.0" },
     { name = "rich", specifier = ">=14.0.0" },
     { name = "ruff", specifier = ">=0.8.0" },
+    { name = "tomli", marker = "python_full_version < '3.11'", specifier = ">=2.0.0" },
     { name = "typer", specifier = ">=0.12.0" },
     { name = "types-requests", specifier = ">=2.25.0" },
 ]
