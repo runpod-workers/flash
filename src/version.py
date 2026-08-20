@@ -5,7 +5,7 @@ import platform
 import sys
 from importlib.metadata import PackageNotFoundError, version
 
-__version__ = "1.5.0"  # x-release-please-version
+__version__ = "1.6.0"  # x-release-please-version
 
 
 class PythonVersionMismatchError(RuntimeError):
