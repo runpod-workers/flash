@@ -22,9 +22,13 @@ depended-on version is published.
 from __future__ import annotations
 
 import sys
-import tomllib
 from pathlib import Path
 from typing import Any
+
+if sys.version_info >= (3, 11):
+    import tomllib
+else:  # tomllib is stdlib only on 3.11+; tomli is the drop-in backport
+    import tomli as tomllib
 
 GIT_MARKERS = ("git+", "git://")
 DEFAULT_PYPROJECT = "pyproject.toml"
