@@ -330,8 +330,11 @@ format-check: # Check code formatting
 typecheck: # Check types with mypy
 	uv run mypy src/
 
+check-deps: # Reject git-ref dependencies in pyproject.toml
+	uv run python scripts/check_git_deps.py
+
 # Quality gates (used in CI)
-quality-check: format-check lint typecheck test-coverage test-handler
+quality-check: format-check lint typecheck check-deps test-coverage test-handler
 
 # Code intelligence commands
 index: # Generate code intelligence index

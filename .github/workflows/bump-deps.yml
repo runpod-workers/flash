@@ -1,0 +1,101 @@
+name: Bump Runtime Dependencies
+
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: "Packages to upgrade"
+        required: true
+        type: choice
+        options:
+          - both
+          - runpod-flash
+          - runpod
+        default: both
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          enable-cache: true
+
+      - name: Upgrade lock file
+        id: upgrade
+        run: |
+          PACKAGES="${{ inputs.packages }}"
+          if [ "$PACKAGES" = "both" ]; then
+            uv lock --upgrade-package runpod-flash --upgrade-package runpod
+          else
+            uv lock --upgrade-package "$PACKAGES"
+          fi
+
+          if git diff --quiet uv.lock; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "No version changes detected in uv.lock"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+
+            OLD_FLASH=$(git show HEAD:uv.lock | grep -A1 'name = "runpod-flash"' | grep 'version' | sed 's/.*"\(.*\)"/\1/')
+            NEW_FLASH=$(grep -A1 'name = "runpod-flash"' uv.lock | grep 'version' | sed 's/.*"\(.*\)"/\1/')
+            OLD_RUNPOD=$(git show HEAD:uv.lock | grep -A1 'name = "runpod"' | grep 'version' | head -1 | sed 's/.*"\(.*\)"/\1/')
+            NEW_RUNPOD=$(grep -A1 'name = "runpod"' uv.lock | grep 'version' | head -1 | sed 's/.*"\(.*\)"/\1/')
+
+            SUMMARY=""
+            if [ "$OLD_FLASH" != "$NEW_FLASH" ]; then
+              SUMMARY="runpod-flash ${OLD_FLASH} -> ${NEW_FLASH}"
+            fi
+            if [ "$OLD_RUNPOD" != "$NEW_RUNPOD" ]; then
+              [ -n "$SUMMARY" ] && SUMMARY="${SUMMARY}, "
+              SUMMARY="${SUMMARY}runpod ${OLD_RUNPOD} -> ${NEW_RUNPOD}"
+            fi
+
+            echo "summary=${SUMMARY}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create pull request
+        if: steps.upgrade.outputs.changed == 'true'
+        run: |
+          BRANCH="fix/bump-runtime-deps"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add uv.lock
+          git commit -m "fix(deps): bump ${{ steps.upgrade.outputs.summary }}"
+          git push -u origin "$BRANCH" --force-with-lease
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updated existing PR #${EXISTING_PR}"
+          else
+            gh pr create \
+              --title "fix(deps): bump ${{ steps.upgrade.outputs.summary }}" \
+              --body "$(cat <<'EOF'
+          ## Summary
+
+          - Bumped runtime dependencies: ${{ steps.upgrade.outputs.summary }}
+          - Triggered manually via workflow_dispatch (${{ inputs.packages }})
+
+          Merging this will trigger a release-please patch release, which rebuilds all Docker images with the updated dependencies.
+          EOF
+          )"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: No changes
+        if: steps.upgrade.outputs.changed == 'false'
+        run: echo "uv.lock already has the latest versions. Nothing to do."

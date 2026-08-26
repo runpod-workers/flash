@@ -215,6 +215,49 @@ async def gpu_matrix_multiply(input_data: dict) -> dict:
         assert result["result_shape"] == [500, 500]
 
 
+class TestModuleImports:
+    """Test that shipped local modules are importable during function execution."""
+
+    def setup_method(self):
+        """Setup for each test method."""
+        self.executor = FunctionExecutor()
+
+    async def test_execute_can_import_shipped_local_module(self):
+        """Test that a shipped local module can be imported and used."""
+        request = FunctionRequest(
+            function_name="handler",
+            function_code=(
+                "def handler():\n"
+                "    import flash_shipped_greeting\n"
+                "    return flash_shipped_greeting.x()\n"
+            ),
+            args=[],
+            kwargs={},
+            modules={"flash_shipped_greeting.py": "def x():\n    return 7\n"},
+        )
+
+        response = await self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == 7
+
+    async def test_execute_without_modules_still_works(self):
+        """Test that execution without any shipped modules still works."""
+        request = FunctionRequest(
+            function_name="handler",
+            function_code="def handler():\n    return 1\n",
+            args=[],
+            kwargs={},
+        )
+
+        response = await self.executor.execute(request)
+
+        assert response.success is True
+        result = cloudpickle.loads(base64.b64decode(response.result))
+        assert result == 1
+
+
 class TestErrorHandling:
     """Test error handling in function execution."""
 

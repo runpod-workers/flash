@@ -1,5 +1,62 @@
 # Changelog
 
+## [1.6.0](https://github.com/runpod-workers/flash/compare/v1.5.0...v1.6.0) (2026-08-20)
+
+
+### Features
+
+* SLS-360 import shipped local modules before executing user code ([#100](https://github.com/runpod-workers/flash/issues/100)) ([a44da63](https://github.com/runpod-workers/flash/commit/a44da63664b14d70315a2b566e865a71f33f19aa))
+
+
+### Bug Fixes
+
+* **ci:** support py3.10 in check_git_deps import ([#106](https://github.com/runpod-workers/flash/issues/106)) ([89eb6a0](https://github.com/runpod-workers/flash/commit/89eb6a009e9ce0a4ecfc96c9e46ed0d3e4adf49e))
+* **deps:** bump ([#105](https://github.com/runpod-workers/flash/issues/105)) ([ea9f7df](https://github.com/runpod-workers/flash/commit/ea9f7df2b424a507119a229c3be5d45041c92742))
+* **deps:** bump runpod-flash 1.16.0 -&gt; 1.17.0, runpod 1.9.0 -&gt; 1.9.1 ([#99](https://github.com/runpod-workers/flash/issues/99)) ([7fb0d11](https://github.com/runpod-workers/flash/commit/7fb0d117e5ebd5ea27908a246699e6b6f0cc645d))
+* **docker:** install torchvision in GPU worker image ([#101](https://github.com/runpod-workers/flash/issues/101)) ([53aeb8a](https://github.com/runpod-workers/flash/commit/53aeb8acc85dcbdf81b0e9a4d2e2ccbc8819999d))
+* unpin runpod-flash to released 1.19.0 ([#103](https://github.com/runpod-workers/flash/issues/103)) ([cb76157](https://github.com/runpod-workers/flash/commit/cb76157b82861f1bd5b24f9953aa4b13a0d23fd0))
+
+## [1.5.0](https://github.com/runpod-workers/flash/compare/v1.4.4...v1.5.0) (2026-04-29)
+
+
+### Features
+
+* multi-Python worker images with startup version check (AE-2827) ([#89](https://github.com/runpod-workers/flash/issues/89)) ([fa6bab9](https://github.com/runpod-workers/flash/commit/fa6bab9e4cbde2adf6df93655d0da948a11c15b9))
+
+
+### Bug Fixes
+
+* **deps:** bump runpod-flash 1.15.0 -&gt; 1.16.0 ([#95](https://github.com/runpod-workers/flash/issues/95)) ([f29eadd](https://github.com/runpod-workers/flash/commit/f29eadd3dfbca6c1621caf6a37a6204dafec71ca))
+
+## [1.4.4](https://github.com/runpod-workers/flash/compare/v1.4.3...v1.4.4) (2026-04-27)
+
+
+### Bug Fixes
+
+* **deps:** bump runpod-flash 1.14.0 -&gt; 1.15.0 ([#92](https://github.com/runpod-workers/flash/issues/92)) ([65fabf7](https://github.com/runpod-workers/flash/commit/65fabf79203a43c2f5c9777a9bdd15bc07a3b8a0))
+
+## [1.4.3](https://github.com/runpod-workers/flash/compare/v1.4.2...v1.4.3) (2026-04-22)
+
+
+### Bug Fixes
+
+* **deps:** bump runpod-flash 1.13.0 -&gt; 1.14.0 ([#90](https://github.com/runpod-workers/flash/issues/90)) ([f4ebebb](https://github.com/runpod-workers/flash/commit/f4ebebbdb5899ed0fadb94beba82c10b9b03a933))
+
+## [1.4.2](https://github.com/runpod-workers/flash/compare/v1.4.1...v1.4.2) (2026-04-15)
+
+
+### Bug Fixes
+
+* **deps:** bump runpod-flash 1.11.3 -&gt; 1.13.0 ([#87](https://github.com/runpod-workers/flash/issues/87)) ([146ee6d](https://github.com/runpod-workers/flash/commit/146ee6ddcbe02a63da10ec814dc2654a04f220dc))
+
+## [1.4.1](https://github.com/runpod-workers/flash/compare/v1.4.0...v1.4.1) (2026-04-09)
+
+
+### Bug Fixes
+
+* **ci:** add manual workflow to bump runtime dependencies ([#84](https://github.com/runpod-workers/flash/issues/84)) ([a5dc87a](https://github.com/runpod-workers/flash/commit/a5dc87a2f165364d229b2ae82e248b6a96981f7e))
+* **deps:** bump runpod-flash 1.8.0 -&gt; 1.11.3, runpod 1.8.1 -&gt; 1.9.0 ([#86](https://github.com/runpod-workers/flash/issues/86)) ([f3ce708](https://github.com/runpod-workers/flash/commit/f3ce708ebb4674e65ad35c99be0f5763f71109a5))
+
 ## [1.4.0](https://github.com/runpod-workers/flash/compare/v1.3.0...v1.4.0) (2026-03-23)
 
 
