@@ -291,7 +291,7 @@ test-integration: # Run integration tests only
 	uv run pytest tests/integration/ -v -m integration
 
 test-coverage: # Run tests with coverage report (parallel)
-	uv run pytest tests/ -v -n auto --dist loadscope --cov=handler --cov=remote_execution --cov-report=term-missing
+	uv run pytest tests/ -v -n auto --dist loadscope --cov=handler --cov=remote_execution --cov-branch --cov-report=term-missing --cov-report=xml --junitxml=pytest-results.xml
 
 test-fast: # Run tests with fast-fail mode
 	uv run pytest tests/ -v -x --tb=short

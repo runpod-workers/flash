@@ -47,6 +47,28 @@ jobs:
       - name: Run all tests with coverage
         run: make test-coverage
 
+      # Shared with the other repos' coverage jobs. It lives in its own public
+      # repo because a public repository -- this one -- cannot resolve an action
+      # from a private one, and it is in a different org besides.
+      #
+      # Pinned by commit rather than tag: a tag can be repointed at new code,
+      # and pinning means a change to the action cannot reach us until we bump
+      # it deliberately.
+      #
+      # It renders the numbers into the run summary and uploads coverage.xml,
+      # which the weekly report reads from the newest successful run on main.
+      # The artifact name is per-matrix-version because upload-artifact@v4
+      # requires unique names within a run.
+      - name: Coverage summary
+        if: always()
+        uses: runpod/coverage-summary-action@65b35a32ecfd9c2f0dc2352394eca1decfba4915
+        with:
+          format: cobertura
+          coverage-file: coverage.xml
+          results: pytest-results.xml
+          artifact-name: coverage-${{ matrix.python-version }}
+          if-no-files-found: warn
+
   lint:
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.head_ref != 'release-please--branches--main'
