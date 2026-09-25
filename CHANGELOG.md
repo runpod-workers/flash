@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/runpod-workers/flash/compare/v1.6.0...v1.6.1) (2026-09-25)
+
+
+### Documentation
+
+* spell Runpod with one capital letter in the README ([#111](https://github.com/runpod-workers/flash/issues/111)) ([f42dc25](https://github.com/runpod-workers/flash/commit/f42dc257d6ab77f184a2a90e8349a9dd37f92d1d))
+
 ## [1.6.0](https://github.com/runpod-workers/flash/compare/v1.5.0...v1.6.0) (2026-08-20)
 
 
