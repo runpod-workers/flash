@@ -66,8 +66,11 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
 # Use --python to target the active interpreter (preserves torch in its site-packages)
 COPY README.md pyproject.toml uv.lock ./
 COPY src/ ./
+# Precompile bytecode at build time: a fresh container otherwise recompiles
+# every imported module on first import, on every cold start.
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
- && uv pip install --python $(which python) --break-system-packages -r requirements.txt
+ && uv pip install --compile-bytecode --python $(which python) --break-system-packages -r requirements.txt \
+ && python -m compileall -q .
 
 # Install numpy for the active Python version.
 # The runpod/pytorch image ships torch but not numpy. Flash build excludes numpy
