@@ -349,6 +349,30 @@ class TestShouldUnpackFromVolume:
             assert _should_unpack_from_volume() is False
 
 
+class FakeClock:
+    """Monotonic clock that only advances when sleep() is called."""
+
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def monotonic(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += seconds
+
+
+@pytest.fixture
+def fake_clock():
+    """Run maybe_unpack's retry loop against a fake clock instead of real time."""
+    clock = FakeClock()
+    with (
+        patch("unpack_volume.monotonic", clock.monotonic),
+        patch("unpack_volume.sleep", clock.sleep),
+    ):
+        yield clock
+
+
 class TestMaybeUnpack:
     """Test idempotency and error handling of maybe_unpack."""
 
@@ -396,16 +420,42 @@ class TestMaybeUnpack:
         mock_should_unpack.assert_called_once()
         mock_unpack.assert_not_called()
 
-    @patch("unpack_volume.sleep")
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
-    def test_maybe_unpack_propagates_exceptions(self, mock_unpack, mock_should_unpack, mock_sleep):
+    def test_maybe_unpack_propagates_exceptions(self, mock_unpack, mock_should_unpack, fake_clock):
         """Test that exceptions during unpacking are propagated."""
         mock_should_unpack.return_value = True
         mock_unpack.side_effect = FileNotFoundError("Artifact not found")
 
         with pytest.raises(RuntimeError, match="failed to unpack app from volume"):
             maybe_unpack()
+
+    @patch("unpack_volume._should_unpack_from_volume")
+    @patch("unpack_volume.unpack_app_from_volume")
+    def test_maybe_unpack_gives_up_at_deadline(self, mock_unpack, mock_should_unpack, fake_clock):
+        """A missing artifact is retried until the deadline, then the last error is chained."""
+        mock_should_unpack.return_value = True
+        mock_unpack.side_effect = FileNotFoundError("artifact not found")
+
+        with pytest.raises(RuntimeError) as exc_info:
+            maybe_unpack()
+
+        assert isinstance(exc_info.value.__cause__, FileNotFoundError)
+        assert 60 <= fake_clock.now <= 61
+
+    @patch("unpack_volume._should_unpack_from_volume")
+    @patch("unpack_volume.unpack_app_from_volume")
+    def test_maybe_unpack_picks_up_late_artifact_promptly(self, mock_unpack, mock_should_unpack):
+        """An artifact that lands just after container start is unpacked without a long wait."""
+        mock_should_unpack.return_value = True
+        mock_unpack.side_effect = [FileNotFoundError("artifact not found"), True]
+        waited: list[float] = []
+
+        with patch("unpack_volume.sleep", side_effect=waited.append):
+            maybe_unpack()
+
+        assert mock_unpack.call_count == 2
+        assert sum(waited) <= 1.0
 
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
@@ -419,14 +469,13 @@ class TestMaybeUnpack:
 
         mock_logger.info.assert_called_once_with("unpacking app from volume")
 
-    @patch("unpack_volume.sleep")
     @patch("unpack_volume._should_unpack_from_volume")
     @patch("unpack_volume.unpack_app_from_volume")
     @patch("unpack_volume.logger")
     def test_maybe_unpack_logs_error_on_failure(
-        self, mock_logger, mock_unpack, mock_should_unpack, mock_sleep
+        self, mock_logger, mock_unpack, mock_should_unpack, fake_clock
     ):
-        """Test that errors are logged when unpacking fails."""
+        """The wait is logged once when it starts, and the failure once at the deadline."""
         mock_should_unpack.return_value = True
         error_msg = "Extraction failed"
         mock_unpack.side_effect = RuntimeError(error_msg)
@@ -434,8 +483,7 @@ class TestMaybeUnpack:
         with pytest.raises(RuntimeError, match="failed to unpack app from volume"):
             maybe_unpack()
 
-        # Error should be logged once per retry attempt (3 total)
-        assert mock_logger.error.call_count == 3
-        # Verify all error calls include the expected message
-        for call in mock_logger.error.call_args_list:
-            assert "failed to unpack app from volume" in call[0][0]
+        assert mock_unpack.call_count > 3
+        assert mock_logger.warning.call_count == 1
+        assert mock_logger.error.call_count == 1
+        assert "failed to unpack app from volume" in mock_logger.error.call_args[0][0]
