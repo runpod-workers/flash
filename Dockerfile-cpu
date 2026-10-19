@@ -32,7 +32,10 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y --no-ins
 # Copy app code and install dependencies
 COPY README.md pyproject.toml uv.lock ./
 COPY src/ ./
+# Precompile bytecode at build time: a fresh container otherwise recompiles
+# every imported module on first import, on every cold start.
 RUN uv export --format requirements-txt --no-dev --no-hashes > requirements.txt \
- && uv pip install --system --break-system-packages -r requirements.txt
+ && uv pip install --compile-bytecode --system --break-system-packages -r requirements.txt \
+ && python -m compileall -q .
 
 CMD ["python", "handler.py"]
