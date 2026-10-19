@@ -46,10 +46,10 @@ FLASH_MANIFEST_PATH = "/app/flash_manifest.json"
 DEFAULT_ENDPOINT_TIMEOUT = 300
 """Default timeout in seconds for cross-endpoint HTTP requests."""
 
-DEFAULT_TARBALL_UNPACK_ATTEMPTS = 3
-"""Number of times the Flash-deployed endpoint will attempt to unpack the worker-flash tarball from mounted volume."""
-DEFAULT_TARBALL_UNPACK_INTERVAL = 30
-"""Time in seconds the Flash-deployed endpoint will wait between tarball unpack attempts."""
+DEFAULT_TARBALL_UNPACK_TIMEOUT = 60
+"""Time in seconds the Flash-deployed endpoint will keep retrying the tarball unpack before giving up."""
+DEFAULT_TARBALL_UNPACK_POLL_INTERVAL = 0.5
+"""Time in seconds between tarball unpack attempts. Kept short because the artifact can land just after container start."""
 
 # Dependency Recovery Configuration
 MAX_IMPORT_RECOVERY_ATTEMPTS = 3

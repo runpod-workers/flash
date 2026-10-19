@@ -6,13 +6,13 @@ import sys
 import tarfile
 import threading
 from pathlib import Path
-from time import sleep
+from time import monotonic, sleep
 
 from constants import (
     DEFAULT_APP_DIR,
     DEFAULT_ARTIFACT_PATH,
-    DEFAULT_TARBALL_UNPACK_ATTEMPTS,
-    DEFAULT_TARBALL_UNPACK_INTERVAL,
+    DEFAULT_TARBALL_UNPACK_POLL_INTERVAL,
+    DEFAULT_TARBALL_UNPACK_TIMEOUT,
 )
 from manifest_reconciliation import is_flash_deployment
 
@@ -127,24 +127,52 @@ def maybe_unpack():
             return
 
         logger.info("unpacking app from volume")
+        _unpack_before_deadline()
+        _UNPACKED = True
 
-        last_error: Exception | None = None
-        for attempt in range(DEFAULT_TARBALL_UNPACK_ATTEMPTS):
-            try:
-                unpack_app_from_volume()
-                _UNPACKED = True
-                return
-            except (FileNotFoundError, RuntimeError) as e:
-                last_error = e
-                logger.error(
-                    "failed to unpack app from volume (attempt %s/%s): %s",
-                    attempt + 1,
-                    DEFAULT_TARBALL_UNPACK_ATTEMPTS,
+
+def _unpack_before_deadline() -> None:
+    """Retry the unpack at a short interval until it succeeds or the deadline passes.
+
+    The artifact can land on the volume just after the container starts, so a
+    short poll picks it up within a fraction of a second instead of after a
+    long fixed sleep. Extraction errors are retried too, since a partially
+    written tarball fails to extract.
+
+    Raises:
+        RuntimeError: the unpack did not succeed before the deadline; the last
+            error is chained.
+    """
+    started = monotonic()
+    deadline = started + DEFAULT_TARBALL_UNPACK_TIMEOUT
+    last_error: Exception | None = None
+    while True:
+        try:
+            unpack_app_from_volume()
+        except (FileNotFoundError, RuntimeError) as e:
+            if last_error is None:
+                logger.warning(
+                    "artifact not ready, retrying every %ss for up to %ss: %s",
+                    DEFAULT_TARBALL_UNPACK_POLL_INTERVAL,
+                    DEFAULT_TARBALL_UNPACK_TIMEOUT,
                     e,
-                    exc_info=True,
                 )
-                if attempt < DEFAULT_TARBALL_UNPACK_ATTEMPTS - 1:
-                    sleep(DEFAULT_TARBALL_UNPACK_INTERVAL)
-        raise RuntimeError(
-            f"failed to unpack app from volume after retries: {last_error}"
-        ) from last_error
+            last_error = e
+        else:
+            if last_error is not None:
+                logger.info("artifact unpacked after %.1fs of retries", monotonic() - started)
+            return
+
+        if monotonic() >= deadline:
+            break
+        sleep(DEFAULT_TARBALL_UNPACK_POLL_INTERVAL)
+
+    logger.error(
+        "failed to unpack app from volume after %ss: %s",
+        DEFAULT_TARBALL_UNPACK_TIMEOUT,
+        last_error,
+        exc_info=last_error,
+    )
+    raise RuntimeError(
+        f"failed to unpack app from volume after retries: {last_error}"
+    ) from last_error
