@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.6.1](https://github.com/runpod-workers/flash/compare/v1.6.0...v1.6.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **deps:** bump hf_xet&gt;=1.6.0 so HF_ENDPOINT proxying works for Xet downloads ([#110](https://github.com/runpod-workers/flash/issues/110)) ([f8ef245](https://github.com/runpod-workers/flash/commit/f8ef245b032cfedd4b0d15111899f2ec3209fe1a))
+
+
+### Performance Improvements
+
+* **docker:** precompile Python bytecode in worker images ([#114](https://github.com/runpod-workers/flash/issues/114)) ([4ddd481](https://github.com/runpod-workers/flash/commit/4ddd4810cf8130a4dc073cf26ec64620a6c5732c))
+* **unpack:** poll for the build artifact under a deadline ([#115](https://github.com/runpod-workers/flash/issues/115)) ([ef3f8ea](https://github.com/runpod-workers/flash/commit/ef3f8eaef84af945dce7974b3890e9b05950c8c0))
+
+
+### Documentation
+
+* spell Runpod with one capital letter in the README ([#111](https://github.com/runpod-workers/flash/issues/111)) ([f42dc25](https://github.com/runpod-workers/flash/commit/f42dc257d6ab77f184a2a90e8349a9dd37f92d1d))
+
 ## [1.6.0](https://github.com/runpod-workers/flash/compare/v1.5.0...v1.6.0) (2026-08-20)
 
 
