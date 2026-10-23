@@ -11,7 +11,11 @@ dependencies = [
     "requests>=2.25.0",
     "runpod",
     "hf_transfer>=0.1.0",
-    "huggingface_hub>=0.32.0",
+    # huggingface_hub>=1.32.0 pulls hf_xet>=1.6.0. hf_xet 1.3.2 fetched Xet xorb
+    # byte ranges directly from the HF CAS/CDN, ignoring the reconstruction
+    # manifest's per-xorb URLs, which bypasses any HF_ENDPOINT proxy/cache. 1.6.0
+    # routes xorb fetches through the reconstruction URLs, so HF_ENDPOINT works.
+    "huggingface_hub>=1.32.0",
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.34.0",
     # 1.19.0 is the first release containing runpod_flash.runtime.module_loader.
