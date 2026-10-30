@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.10, <3.14"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -810,7 +810,7 @@ name = "exceptiongroup"
 version = "1.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/50/79/66800aadf48771f6b62f7eb014e352e5d06856655206165d775e675a02c9/exceptiongroup-1.3.1.tar.gz", hash = "sha256:8b412432c6055b0b7d14c310000ae93352ed6754f70fa8f7c34141f91c4e3219", size = 30371, upload-time = "2025-11-21T23:01:54.787Z" }
 wheels = [
@@ -2577,7 +2577,7 @@ wheels = [
 
 [[package]]
 name = "runpod-flash"
-version = "1.19.0"
+version = "1.21.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cloudpickle" },
@@ -2588,11 +2588,12 @@ dependencies = [
     { name = "rich" },
     { name = "runpod" },
     { name = "tomli", marker = "python_full_version < '3.11'" },
+    { name = "tomlkit" },
     { name = "typer" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/a7/15/12b46f2f45391095683f070cab73a8ff0f49aa015b2d9466d3d50487926f/runpod_flash-1.19.0.tar.gz", hash = "sha256:70344dd7e2939a901a3c1c6eefe1a678a2f5533cb17f4b1239692bc278148952", size = 211122, upload-time = "2026-07-28T07:54:29.878Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/04/1e/5d15dc8823a9be206b5c9aced60d1444de9087e58c73669f9c908de9f946/runpod_flash-1.21.1.tar.gz", hash = "sha256:25d66d5baafac27bd038aed8647fa898372a973752487dda76fe24cc2f6ffdf1", size = 231687, upload-time = "2026-10-30T21:05:53.663Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c2/7e/00665d3b0c47f52ffd43499a8ba7d5cd3adb5f0d74a04e8b094b84abe51d/runpod_flash-1.19.0-py3-none-any.whl", hash = "sha256:d7fc371e368be5504476a7ad915c0da965f0a0905c4a100017160168108020f4", size = 248661, upload-time = "2026-07-28T07:54:28.072Z" },
+    { url = "https://files.pythonhosted.org/packages/94/fc/3fe584108814d3e6faf87391dc952804970bafaee84610758224f891b912/runpod_flash-1.21.1-py3-none-any.whl", hash = "sha256:e07126722970ac9dd277be2884016c39b3d37120e1c6c4e5f0c8c547a21b7ce3", size = 269018, upload-time = "2026-10-30T21:05:51.853Z" },
 ]
 
 [[package]]
