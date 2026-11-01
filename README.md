@@ -1,3 +1,6 @@
+> [!WARNING]
+> This is the worker runtime for `runpod-flash`. Flash has moved into the Runpod Python SDK 2.0, and `runpod-flash` was deprecated on **October 29, 2026**. This repository receives no fixes or updates and is archived and read-only. See the [migration guide](https://docs.runpod.io/sdk/migrate-from-flash).
+
 ![Runpod Worker Template](https://cpjrphpz3t5wbwfe.public.blob.vercel-storage.com/worker-template_banner-zUuCAjwDuvfsINR6vKBhYvvm3TnZFB.jpeg)
 
 ---
